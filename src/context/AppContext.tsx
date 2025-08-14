@@ -1,90 +1,123 @@
 import React, { createContext, useReducer, ReactNode, useEffect, useCallback, useRef } from 'react';
 import { appReducer, type AppState, type AppAction } from './appReducer';
 import { saveToStorage, loadFromStorage, isStorageAvailable } from '../utils/storage';
+import { calculateProjectProgress, calculateGoalProgress } from '../utils/progress';
 
 const initialState: AppState = {
-  tasks: [
-    {
-      id: '1',
-      title: 'Review quarterly metrics',
-      description: 'Analyze Q4 performance and identify key insights',
-      priority: 'high',
-      status: 'in-progress',
-      dueDate: new Date(2025, 0, 15),
-      projectId: 'proj-1',
-      createdAt: new Date(2025, 0, 1),
-      tags: ['business', 'quarterly']
-    },
-    {
-      id: '2',
-      title: 'Update website content',
-      description: 'Refresh homepage and about section',
-      priority: 'medium',
-      status: 'todo',
-      dueDate: new Date(2025, 0, 20),
-      projectId: 'proj-2',
-      createdAt: new Date(2025, 0, 2),
-      tags: ['marketing', 'website']
-    },
-    {
-      id: '3',
-      title: 'Client follow-up calls',
-      priority: 'high',
-      status: 'todo',
-      dueDate: new Date(2025, 0, 12),
-      createdAt: new Date(2025, 0, 5),
-      tags: ['sales', 'communication']
-    }
-  ],
-  projects: [
-    {
-      id: 'proj-1',
-      name: 'Business Analytics',
-      description: 'Quarterly review and planning',
-      color: '#D97757',
-      createdAt: new Date(2024, 11, 15),
-      tasks: [],
-      progress: 45
-    },
-    {
-      id: 'proj-2',
-      name: 'Marketing Refresh',
-      description: 'Website and content updates',
-      color: '#B8956A',
-      createdAt: new Date(2024, 11, 20),
-      tasks: [],
-      progress: 20
-    }
-  ],
-  goals: [
-    {
-      id: 'goal-1',
-      title: 'Increase revenue by 25%',
-      description: 'Focus on customer acquisition and retention',
-      targetDate: new Date(2025, 5, 30),
-      progress: 30,
-      milestones: [
-        { id: 'm1', title: 'Launch new product line', completed: true, completedAt: new Date(2024, 11, 15) },
-        { id: 'm2', title: 'Expand marketing reach', completed: false },
-        { id: 'm3', title: 'Optimize pricing strategy', completed: false }
-      ],
-      createdAt: new Date(2024, 10, 1)
-    }
-  ],
+  tasks: [],
+  projects: [],
+  goals: [],
   analytics: {
-    tasksCompleted: 12,
-    tasksCreated: 18,
-    productivity: 78,
-    streakDays: 5,
-    averageCompletionTime: 2.3
+    tasksCompleted: 0,
+    tasksCreated: 0,
+    productivity: 0,
+    streakDays: 0,
+    averageCompletionTime: 0
   },
   searchQuery: '',
   selectedProject: null,
-  selectedPriority: null
+  selectedPriority: null,
+  userSettings: {
+    profile: {
+      name: 'Alex Morgan',
+      email: 'alex@company.com'
+    },
+    notifications: {
+      emailTasks: true,
+      dailySummary: true,
+      weeklyReports: false
+    },
+    appearance: {
+      theme: 'dark',
+      accentColor: '#D97757'
+    }
+  }
 };
 
 const STORAGE_KEY = 'task-manager-state';
 const DEBOUNCE_DELAY = 500; // 500ms debounce delay
+
+// Type for legacy state structure during migration
+interface LegacyState {
+  tasks?: Task[];
+  projects?: Array<Partial<Project> & { goalId?: string }>;
+  goals?: Array<Partial<Goal> & { projects?: Project[] }>;
+  analytics?: {
+    tasksCompleted: number;
+    tasksCreated: number;
+    productivity: number;
+    streakDays: number;
+    averageCompletionTime: number;
+  };
+  searchQuery?: string;
+  selectedProject?: string | null;
+  selectedPriority?: string | null;
+  userSettings?: UserSettings;
+}
+
+// Migration function to handle existing data structure
+function migrateState(savedState: LegacyState): AppState {
+  // If the state already has the new structure, return as is
+  if (savedState.projects?.[0]?.goalId !== undefined && savedState.goals?.[0]?.projects !== undefined) {
+    return savedState as AppState;
+  }
+
+  // Migrate projects to include goalId (default to first goal or create one)
+  const migratedProjects = savedState.projects?.map((project) => ({
+    ...project,
+    goalId: project.goalId || 'goal-1'
+  })) || [];
+
+  // Migrate goals to include projects array
+  const migratedGoals = savedState.goals?.map((goal) => ({
+    ...goal,
+    projects: migratedProjects.filter((project) => project.goalId === goal.id)
+  })) || [];
+
+  // If no goals exist, create a default goal
+  if (migratedGoals.length === 0) {
+    migratedGoals.push({
+      id: 'goal-1',
+      title: 'Default Goal',
+      description: 'Default goal for existing projects',
+      targetDate: new Date(2025, 11, 31),
+      progress: 0,
+      projects: migratedProjects,
+      milestones: [],
+      createdAt: new Date()
+    });
+  }
+
+  // Update project progress based on tasks
+  const updatedProjects = migratedProjects.map((project) => {
+    const projectTasks = savedState.tasks?.filter((task) => task.projectId === project.id) || [];
+    const progressResult = calculateProjectProgress(projectTasks);
+    
+    return {
+      ...project,
+      progress: progressResult.percentage,
+      tasks: projectTasks
+    };
+  });
+
+  // Update goal progress based on projects
+  const updatedGoals = migratedGoals.map((goal) => {
+    const goalProjects = updatedProjects.filter((project) => project.goalId === goal.id);
+    const progressResult = calculateGoalProgress(goalProjects);
+    
+    return {
+      ...goal,
+      progress: progressResult.percentage,
+      projects: goalProjects
+    };
+  });
+
+  return {
+    ...savedState,
+    projects: updatedProjects,
+    goals: updatedGoals
+  } as AppState;
+}
 
 export const AppContext = createContext<{
   state: AppState;
@@ -105,7 +138,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const savedState = loadFromStorage(STORAGE_KEY);
       if (savedState) {
         console.log('Loaded state from localStorage');
-        return savedState;
+        return migrateState(savedState);
       }
 
       console.log('No saved state found, using initial state');

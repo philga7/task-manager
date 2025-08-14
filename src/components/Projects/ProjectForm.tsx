@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Project } from '../../types';
 import { Button } from '../UI/Button';
 import { Card } from '../UI/Card';
-import { X, Palette } from 'lucide-react';
+import { X, Palette, Target } from 'lucide-react';
 import { useApp } from '../../context/useApp';
 
 interface ProjectFormProps {
@@ -16,21 +16,29 @@ const projectColors = [
 ];
 
 export function ProjectForm({ onClose, project }: ProjectFormProps) {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
   const [formData, setFormData] = useState({
     name: project?.name || '',
     description: project?.description || '',
-    color: project?.color || projectColors[0]
+    color: project?.color || projectColors[0],
+    goalId: project?.goalId || ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate that a goal is selected when goals exist
+    if (state.goals.length > 0 && !formData.goalId) {
+      alert('Please select a goal for this project.');
+      return;
+    }
     
     const projectData: Project = {
       id: project?.id || `proj-${Date.now()}`,
       name: formData.name,
       description: formData.description,
       color: formData.color,
+      goalId: formData.goalId,
       createdAt: project?.createdAt || new Date(),
       tasks: project?.tasks || [],
       progress: project?.progress || 0
@@ -92,6 +100,35 @@ export function ProjectForm({ onClose, project }: ProjectFormProps) {
 
           <div>
             <label className="block text-xs md:text-sm font-medium text-stone-300 mb-2">
+              <Target className="w-4 h-4 inline mr-1" />
+              Goal *
+            </label>
+            {state.goals.length === 0 ? (
+              <div className="p-3 border border-stone-700 bg-stone-800 rounded-lg">
+                <p className="text-sm text-stone-400">
+                  No goals available. Please create a goal first to assign this project.
+                </p>
+              </div>
+            ) : (
+              <select
+                required
+                value={formData.goalId}
+                onChange={(e) => setFormData({ ...formData, goalId: e.target.value })}
+                className="w-full px-3 py-2 border border-stone-700 bg-stone-800 text-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm md:text-base"
+                style={{ '--tw-ring-color': '#D97757' } as React.CSSProperties}
+              >
+                <option value="">Select a goal...</option>
+                {state.goals.map(goal => (
+                  <option key={goal.id} value={goal.id}>
+                    {goal.title}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs md:text-sm font-medium text-stone-300 mb-2">
               <Palette className="w-4 h-4 inline mr-1" />
               Color
             </label>
@@ -111,7 +148,11 @@ export function ProjectForm({ onClose, project }: ProjectFormProps) {
           </div>
 
           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 pt-4">
-            <Button type="submit" className="flex-1">
+            <Button 
+              type="submit" 
+              className="flex-1"
+              disabled={state.goals.length === 0}
+            >
               {project ? 'Update Project' : 'Create Project'}
             </Button>
             <Button type="button" variant="secondary" onClick={onClose}>
