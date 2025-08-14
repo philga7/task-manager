@@ -3,6 +3,7 @@ import { Card } from '../components/UI/Card';
 import { Button } from '../components/UI/Button';
 import { TaskCard } from '../components/Tasks/TaskCard';
 import { TaskForm } from '../components/Tasks/TaskForm';
+import { EmptyState } from '../components/UI/EmptyState';
 import { useApp } from '../context/useApp';
 import { Plus, Filter, SortDesc } from 'lucide-react';
 
@@ -138,16 +139,17 @@ export function Tasks() {
       </Card>
 
       {/* Tasks Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-        {sortedTasks.map(task => (
-          <TaskCard key={task.id} task={task} />
-        ))}
-      </div>
-
-      {sortedTasks.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-stone-400">No tasks found matching your criteria.</p>
+      {sortedTasks.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+          {sortedTasks.map(task => (
+            <TaskCard key={task.id} task={task} />
+          ))}
         </div>
+      ) : (
+        <EmptyState 
+          type="tasks" 
+          onCreate={() => setShowTaskForm(true)}
+        />
       )}
 
       {showTaskForm && (

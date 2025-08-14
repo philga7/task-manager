@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card } from '../components/UI/Card';
 import { ProgressBar } from '../components/UI/ProgressBar';
+import { EmptyState } from '../components/UI/EmptyState';
 import { useApp } from '../context/useApp';
 import { TrendingUp, Clock, Target, Zap } from 'lucide-react';
 
@@ -11,6 +12,9 @@ export function Analytics() {
   const weeklyData = [65, 75, 80, 85, 78, 82, 88];
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+  // Check if there's any data to show
+  const hasData = state.tasks.length > 0 || state.projects.length > 0 || state.goals.length > 0;
+
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div>
@@ -18,7 +22,19 @@ export function Analytics() {
         <p className="text-stone-400">Your productivity insights and trends</p>
       </div>
 
-      {/* Key Metrics */}
+      {!hasData && (
+        <EmptyState 
+          type="analytics" 
+          onCreate={() => {
+            // Navigate to tasks page to create first task
+            window.location.hash = '#/tasks';
+          }}
+        />
+      )}
+
+      {hasData && (
+        <>
+          {/* Key Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         <Card>
           <div className="flex items-center space-x-2 md:space-x-3">
@@ -124,6 +140,8 @@ export function Analytics() {
           ))}
         </div>
       </Card>
+        </>
+      )}
     </div>
   );
 }

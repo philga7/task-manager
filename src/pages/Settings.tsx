@@ -1,28 +1,11 @@
 import React from 'react';
-import { useState } from 'react';
 import { Card } from '../components/UI/Card';
 import { Button } from '../components/UI/Button';
 import { useApp } from '../context/useApp';
 import { User, Bell, Palette, Shield, Download } from 'lucide-react';
 
 export function Settings() {
-  const { state } = useApp();
-  const [profile, setProfile] = useState({
-    name: 'Alex Morgan',
-    email: 'alex@company.com'
-  });
-  const [notifications, setNotifications] = useState({
-    emailTasks: true,
-    dailySummary: true,
-    weeklyReports: false
-  });
-  const [theme, setTheme] = useState('light');
-  const [accentColor, setAccentColor] = useState('#D97757');
-
-  const handleProfileSave = () => {
-    // In a real app, this would save to backend
-    alert('Profile updated successfully!');
-  };
+  const { state, dispatch } = useApp();
 
   const handleExportData = () => {
     const data = {
@@ -42,6 +25,7 @@ export function Settings() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div>
@@ -61,8 +45,11 @@ export function Settings() {
               <label className="block text-xs md:text-sm font-medium text-stone-300 mb-1">Full Name</label>
               <input
                 type="text"
-                value={profile.name}
-                onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                value={state.userSettings.profile.name}
+                onChange={(e) => dispatch({
+                  type: 'UPDATE_USER_PROFILE',
+                  payload: { ...state.userSettings.profile, name: e.target.value }
+                })}
                 className="w-full px-3 py-2 border border-stone-700 bg-stone-800 text-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base"
                 style={{ '--tw-ring-color': '#D97757' } as React.CSSProperties}
               />
@@ -71,13 +58,15 @@ export function Settings() {
               <label className="block text-xs md:text-sm font-medium text-stone-300 mb-1">Email</label>
               <input
                 type="email"
-                value={profile.email}
-                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                value={state.userSettings.profile.email}
+                onChange={(e) => dispatch({
+                  type: 'UPDATE_USER_PROFILE',
+                  payload: { ...state.userSettings.profile, email: e.target.value }
+                })}
                 className="w-full px-3 py-2 border border-stone-700 bg-stone-800 text-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base"
                 style={{ '--tw-ring-color': '#D97757' } as React.CSSProperties}
               />
             </div>
-            <Button size="sm" onClick={handleProfileSave}>Save Changes</Button>
           </div>
         </Card>
 
@@ -91,8 +80,11 @@ export function Settings() {
             <label className="flex items-center space-x-3">
               <input 
                 type="checkbox" 
-                checked={notifications.emailTasks}
-                onChange={(e) => setNotifications({ ...notifications, emailTasks: e.target.checked })}
+                checked={state.userSettings.notifications.emailTasks}
+                onChange={(e) => dispatch({
+                  type: 'UPDATE_NOTIFICATION_SETTINGS',
+                  payload: { ...state.userSettings.notifications, emailTasks: e.target.checked }
+                })}
                 className="rounded border-stone-600 bg-stone-800 focus:ring-2"
                 style={{ accentColor: '#D97757', '--tw-ring-color': '#D97757' } as React.CSSProperties}
               />
@@ -101,8 +93,11 @@ export function Settings() {
             <label className="flex items-center space-x-3">
               <input 
                 type="checkbox" 
-                checked={notifications.dailySummary}
-                onChange={(e) => setNotifications({ ...notifications, dailySummary: e.target.checked })}
+                checked={state.userSettings.notifications.dailySummary}
+                onChange={(e) => dispatch({
+                  type: 'UPDATE_NOTIFICATION_SETTINGS',
+                  payload: { ...state.userSettings.notifications, dailySummary: e.target.checked }
+                })}
                 className="rounded border-stone-600 bg-stone-800 focus:ring-2"
                 style={{ accentColor: '#D97757', '--tw-ring-color': '#D97757' } as React.CSSProperties}
               />
@@ -111,8 +106,11 @@ export function Settings() {
             <label className="flex items-center space-x-3">
               <input 
                 type="checkbox" 
-                checked={notifications.weeklyReports}
-                onChange={(e) => setNotifications({ ...notifications, weeklyReports: e.target.checked })}
+                checked={state.userSettings.notifications.weeklyReports}
+                onChange={(e) => dispatch({
+                  type: 'UPDATE_NOTIFICATION_SETTINGS',
+                  payload: { ...state.userSettings.notifications, weeklyReports: e.target.checked }
+                })}
                 className="rounded border-stone-600 bg-stone-800 focus:ring-2"
                 style={{ accentColor: '#D97757', '--tw-ring-color': '#D97757' } as React.CSSProperties}
               />
@@ -131,41 +129,56 @@ export function Settings() {
             <div>
               <label className="block text-xs md:text-sm font-medium text-stone-300 mb-2">Theme</label>
               <select 
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
+                value={state.userSettings.appearance.theme}
+                onChange={(e) => dispatch({
+                  type: 'UPDATE_APPEARANCE_SETTINGS',
+                  payload: { ...state.userSettings.appearance, theme: e.target.value }
+                })}
                 className="w-full px-3 py-2 border border-stone-700 bg-stone-800 text-stone-200 rounded-lg focus:outline-none focus:ring-2 text-sm md:text-base"
                 style={{ '--tw-ring-color': '#D97757' } as React.CSSProperties}
               >
-                <option>Light</option>
-                <option>Dark</option>
-                <option>System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="system">System</option>
               </select>
             </div>
             <div>
               <label className="block text-xs md:text-sm font-medium text-stone-300 mb-2">Accent Color</label>
               <div className="flex flex-wrap gap-2">
                 <button 
-                  onClick={() => setAccentColor('#D97757')}
+                  onClick={() => dispatch({
+                    type: 'UPDATE_APPEARANCE_SETTINGS',
+                    payload: { ...state.userSettings.appearance, accentColor: '#D97757' }
+                  })}
                   className="w-6 h-6 md:w-8 md:h-8 rounded-lg border-2"
                   style={{ 
                     backgroundColor: '#D97757', 
-                    borderColor: accentColor === '#D97757' ? '#C86A4A' : 'transparent' 
+                    borderColor: state.userSettings.appearance.accentColor === '#D97757' ? '#C86A4A' : 'transparent' 
                   }}
                 ></button>
                 <button 
-                  onClick={() => setAccentColor('#3B82F6')}
+                  onClick={() => dispatch({
+                    type: 'UPDATE_APPEARANCE_SETTINGS',
+                    payload: { ...state.userSettings.appearance, accentColor: '#3B82F6' }
+                  })}
                   className="w-6 h-6 md:w-8 md:h-8 bg-blue-500 rounded-lg border-2 hover:border-stone-500"
-                  style={{ borderColor: accentColor === '#3B82F6' ? '#2563EB' : 'transparent' }}
+                  style={{ borderColor: state.userSettings.appearance.accentColor === '#3B82F6' ? '#2563EB' : 'transparent' }}
                 ></button>
                 <button 
-                  onClick={() => setAccentColor('#10B981')}
+                  onClick={() => dispatch({
+                    type: 'UPDATE_APPEARANCE_SETTINGS',
+                    payload: { ...state.userSettings.appearance, accentColor: '#10B981' }
+                  })}
                   className="w-6 h-6 md:w-8 md:h-8 bg-green-500 rounded-lg border-2 hover:border-stone-500"
-                  style={{ borderColor: accentColor === '#10B981' ? '#059669' : 'transparent' }}
+                  style={{ borderColor: state.userSettings.appearance.accentColor === '#10B981' ? '#059669' : 'transparent' }}
                 ></button>
                 <button 
-                  onClick={() => setAccentColor('#8B5CF6')}
+                  onClick={() => dispatch({
+                    type: 'UPDATE_APPEARANCE_SETTINGS',
+                    payload: { ...state.userSettings.appearance, accentColor: '#8B5CF6' }
+                  })}
                   className="w-6 h-6 md:w-8 md:h-8 bg-purple-500 rounded-lg border-2 hover:border-stone-500"
-                  style={{ borderColor: accentColor === '#8B5CF6' ? '#7C3AED' : 'transparent' }}
+                  style={{ borderColor: state.userSettings.appearance.accentColor === '#8B5CF6' ? '#7C3AED' : 'transparent' }}
                 ></button>
               </div>
             </div>
