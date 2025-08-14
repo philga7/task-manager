@@ -1,29 +1,6 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { Task, Project, Goal, Analytics } from '../types';
-
-interface AppState {
-  tasks: Task[];
-  projects: Project[];
-  goals: Goal[];
-  analytics: Analytics;
-  searchQuery: string;
-  selectedProject: string | null;
-  selectedPriority: string | null;
-}
-
-type AppAction =
-  | { type: 'ADD_TASK'; payload: Task }
-  | { type: 'UPDATE_TASK'; payload: Task }
-  | { type: 'DELETE_TASK'; payload: string }
-  | { type: 'ADD_PROJECT'; payload: Project }
-  | { type: 'UPDATE_PROJECT'; payload: Project }
-  | { type: 'DELETE_PROJECT'; payload: string }
-  | { type: 'ADD_GOAL'; payload: Goal }
-  | { type: 'UPDATE_GOAL'; payload: Goal }
-  | { type: 'DELETE_GOAL'; payload: string }
-  | { type: 'SET_SEARCH_QUERY'; payload: string }
-  | { type: 'SET_SELECTED_PROJECT'; payload: string | null }
-  | { type: 'SET_SELECTED_PRIORITY'; payload: string | null };
+import React, { createContext, useReducer, ReactNode, useEffect, useCallback, useRef } from 'react';
+import { appReducer, type AppState, type AppAction } from './appReducer';
+import { saveToStorage, loadFromStorage, isStorageAvailable } from '../utils/storage';
 
 const initialState: AppState = {
   tasks: [
@@ -106,80 +83,80 @@ const initialState: AppState = {
   selectedPriority: null
 };
 
-function appReducer(state: AppState, action: AppAction): AppState {
-  switch (action.type) {
-    case 'ADD_TASK':
-      return { ...state, tasks: [...state.tasks, action.payload] };
-    case 'UPDATE_TASK':
-      return {
-        ...state,
-        tasks: state.tasks.map(task => 
-          task.id === action.payload.id ? action.payload : task
-        )
-      };
-    case 'DELETE_TASK':
-      return {
-        ...state,
-        tasks: state.tasks.filter(task => task.id !== action.payload)
-      };
-    case 'ADD_PROJECT':
-      return { ...state, projects: [...state.projects, action.payload] };
-    case 'UPDATE_PROJECT':
-      return {
-        ...state,
-        projects: state.projects.map(project =>
-          project.id === action.payload.id ? action.payload : project
-        )
-      };
-    case 'DELETE_PROJECT':
-      return {
-        ...state,
-        projects: state.projects.filter(project => project.id !== action.payload)
-      };
-    case 'ADD_GOAL':
-      return { ...state, goals: [...state.goals, action.payload] };
-    case 'UPDATE_GOAL':
-      return {
-        ...state,
-        goals: state.goals.map(goal =>
-          goal.id === action.payload.id ? action.payload : goal
-        )
-      };
-    case 'DELETE_GOAL':
-      return {
-        ...state,
-        goals: state.goals.filter(goal => goal.id !== action.payload)
-      };
-    case 'SET_SEARCH_QUERY':
-      return { ...state, searchQuery: action.payload };
-    case 'SET_SELECTED_PROJECT':
-      return { ...state, selectedProject: action.payload };
-    case 'SET_SELECTED_PRIORITY':
-      return { ...state, selectedPriority: action.payload };
-    default:
-      return state;
-  }
-}
+const STORAGE_KEY = 'task-manager-state';
+const DEBOUNCE_DELAY = 500; // 500ms debounce delay
 
-const AppContext = createContext<{
+export const AppContext = createContext<{
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
 } | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(appReducer, initialState);
+  // Lazy initialization to load state from localStorage on first render
+  const [state, dispatch] = useReducer(appReducer, initialState, () => {
+    try {
+      // Check if localStorage is available
+      if (!isStorageAvailable()) {
+        console.warn('localStorage is not available, using initial state');
+        return initialState;
+      }
+
+      // Try to load state from localStorage
+      const savedState = loadFromStorage(STORAGE_KEY);
+      if (savedState) {
+        console.log('Loaded state from localStorage');
+        return savedState;
+      }
+
+      console.log('No saved state found, using initial state');
+      return initialState;
+    } catch (error) {
+      console.error('Error loading state from localStorage:', error);
+      console.log('Falling back to initial state');
+      return initialState;
+    }
+  });
+
+  // Ref to store the debounce timeout
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debounced save function
+  const debouncedSave = useCallback((currentState: AppState) => {
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Set new timeout
+    saveTimeoutRef.current = setTimeout(() => {
+      try {
+        if (isStorageAvailable()) {
+          saveToStorage(STORAGE_KEY, currentState);
+          console.log('State saved to localStorage');
+        }
+      } catch (error) {
+        console.error('Error saving state to localStorage:', error);
+      }
+    }, DEBOUNCE_DELAY);
+  }, []);
+
+  // Save state to localStorage whenever state changes
+  useEffect(() => {
+    debouncedSave(state);
+  }, [state, debouncedSave]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>
       {children}
     </AppContext.Provider>
   );
-}
-
-export function useApp() {
-  const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useApp must be used within an AppProvider');
-  }
-  return context;
 }

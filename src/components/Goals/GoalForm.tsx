@@ -3,7 +3,7 @@ import { Goal, Milestone } from '../../types';
 import { Button } from '../UI/Button';
 import { Card } from '../UI/Card';
 import { X, Target, Calendar, Plus, Trash2 } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { useApp } from '../../context/useApp';
 
 interface GoalFormProps {
   onClose: () => void;
@@ -61,7 +61,7 @@ export function GoalForm({ onClose, goal }: GoalFormProps) {
     setMilestones(milestones.filter((_, i) => i !== index));
   };
 
-  const updateMilestone = (index: number, field: keyof Omit<Milestone, 'id'>, value: any) => {
+  const updateMilestone = (index: number, field: keyof Omit<Milestone, 'id'>, value: string | number | boolean | Date) => {
     const updated = [...milestones];
     updated[index] = { ...updated[index], [field]: value };
     setMilestones(updated);

@@ -2,7 +2,7 @@ import React from 'react';
 import { Card } from '../components/UI/Card';
 import { ProgressBar } from '../components/UI/ProgressBar';
 import { TaskCard } from '../components/Tasks/TaskCard';
-import { useApp } from '../context/AppContext';
+import { useApp } from '../context/useApp';
 import { CheckCircle2, Clock, Target, TrendingUp } from 'lucide-react';
 
 export function Dashboard() {

@@ -2,8 +2,8 @@ import React from 'react';
 import { useState } from 'react';
 import { Card } from '../components/UI/Card';
 import { Button } from '../components/UI/Button';
-import { useApp } from '../context/AppContext';
-import { Settings as SettingsIcon, User, Bell, Palette, Shield, Download } from 'lucide-react';
+import { useApp } from '../context/useApp';
+import { User, Bell, Palette, Shield, Download } from 'lucide-react';
 
 export function Settings() {
   const { state } = useApp();

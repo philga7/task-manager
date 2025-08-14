@@ -4,7 +4,7 @@ import { Card } from '../components/UI/Card';
 import { Button } from '../components/UI/Button';
 import { ProgressBar } from '../components/UI/ProgressBar';
 import { ProjectForm } from '../components/Projects/ProjectForm';
-import { useApp } from '../context/AppContext';
+import { useApp } from '../context/useApp';
 import { Plus, Calendar, Users } from 'lucide-react';
 import { format } from 'date-fns';
 
