@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card } from '../components/UI/Card';
 import { ProgressBar } from '../components/UI/ProgressBar';
-import { useApp } from '../context/AppContext';
+import { useApp } from '../context/useApp';
 import { TrendingUp, Clock, Target, Zap } from 'lucide-react';
 
 export function Analytics() {

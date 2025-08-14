@@ -3,7 +3,7 @@ import { Card } from '../components/UI/Card';
 import { Button } from '../components/UI/Button';
 import { TaskCard } from '../components/Tasks/TaskCard';
 import { TaskForm } from '../components/Tasks/TaskForm';
-import { useApp } from '../context/AppContext';
+import { useApp } from '../context/useApp';
 import { Plus, Filter, SortDesc } from 'lucide-react';
 
 export function Tasks() {
@@ -44,9 +44,10 @@ export function Tasks() {
         if (!a.dueDate) return 1;
         if (!b.dueDate) return -1;
         return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-      case 'priority':
+      case 'priority': {
         const priorityOrder = { high: 3, medium: 2, low: 1 };
         return priorityOrder[b.priority] - priorityOrder[a.priority];
+      }
       case 'created':
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       default:

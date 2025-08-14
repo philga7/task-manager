@@ -4,7 +4,7 @@ import { Task } from '../../types';
 import { TaskForm } from './TaskForm';
 import { Calendar, Flag, CheckCircle2, Circle } from 'lucide-react';
 import { format } from 'date-fns';
-import { useApp } from '../../context/AppContext';
+import { useApp } from '../../context/useApp';
 
 interface TaskCardProps {
   task: Task;

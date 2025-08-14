@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Task, Project } from '../../types';
+import { Task } from '../../types';
 import { Button } from '../UI/Button';
 import { Card } from '../UI/Card';
 import { X, Calendar, Flag, Tag, Folder } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { useApp } from '../../context/useApp';
 
 interface TaskFormProps {
   onClose: () => void;

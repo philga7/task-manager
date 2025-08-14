@@ -3,7 +3,7 @@ import { Project } from '../../types';
 import { Button } from '../UI/Button';
 import { Card } from '../UI/Card';
 import { X, Palette } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { useApp } from '../../context/useApp';
 
 interface ProjectFormProps {
   onClose: () => void;
@@ -101,9 +101,6 @@ export function ProjectForm({ onClose, project }: ProjectFormProps) {
                   key={color}
                   type="button"
                   onClick={() => setFormData({ ...formData, color })}
-                  className={`w-8 h-8 md:w-10 md:h-10 rounded-lg border-2 transition-all ${
-                    formData.color === color ? 'border-stone-400 scale-110' : 'border-stone-200 hover:border-stone-300'
-                  }`}
                   className={`w-8 h-8 md:w-10 md:h-10 rounded-lg border-2 transition-all ${
                     formData.color === color ? 'border-stone-400 scale-110' : 'border-stone-600 hover:border-stone-500'
                   }`}

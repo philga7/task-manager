@@ -41,7 +41,6 @@ export function ProgressBar({
       <div className={`w-full bg-stone-700 rounded-full ${sizeClasses[size]}`}>
         <div
           className={`${sizeClasses[size]} rounded-full transition-all duration-500 ease-out`}
-          style={{ width: `${percentage}%` }}
           style={{ 
             width: `${percentage}%`, 
             backgroundColor: typeof colorClasses[color] === 'string' ? colorClasses[color] : ''

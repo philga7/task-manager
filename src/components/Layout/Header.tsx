@@ -1,6 +1,6 @@
 import React from 'react';
 import { Search, Bell, User, Menu } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { useApp } from '../../context/useApp';
 
 interface HeaderProps {
   onMenuClick: () => void;
