@@ -1,0 +1,14 @@
+{
+  "env": {},
+  "mcpServers": {
+    "shrimp-task-manager": {
+      "command": "mcp-shrimp-task-manager",
+      "env": {
+        "DATA_DIR": "/Users/philipclapper/ShrimpData/task-manager",
+        "TEMPLATES_USE": "en",
+        "ENABLE_GUI": "true",
+        "WEB_PORT": "3008"
+      }
+    }
+  }
+} 
