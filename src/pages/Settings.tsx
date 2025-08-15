@@ -95,25 +95,6 @@ export function Settings() {
     setIsAuthModalOpen(true);
   };
 
-  const handleExportData = () => {
-    const data = {
-      tasks: state.tasks,
-      projects: state.projects,
-      goals: state.goals,
-      exportDate: new Date().toISOString()
-    };
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `task-manager-export-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <>
       <div className="p-4 md:p-6 space-y-4 md:space-y-6">
