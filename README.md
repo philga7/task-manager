@@ -236,6 +236,17 @@ This is a portfolio project, but contributions are welcome:
 3. Make your changes
 4. Submit a pull request
 
+### 🐛 Bug Reports
+
+We use a structured bug report template to help identify and resolve issues quickly. When reporting bugs:
+
+1. Use the [Bug Report Template](.github/ISSUE_TEMPLATE/bug_report.md)
+2. Provide clear steps to reproduce the issue
+3. Include relevant screenshots and environment details
+4. Check the browser console for error messages
+
+The template is designed to be genAI-friendly and helps with efficient root cause analysis.
+
 ## 📄 License
 
 This project is open source and available under the [MIT License](LICENSE).
