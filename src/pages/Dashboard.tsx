@@ -2,6 +2,7 @@ import React from 'react';
 import { Card } from '../components/UI/Card';
 import { ProgressBar } from '../components/UI/ProgressBar';
 import { TaskCard } from '../components/Tasks/TaskCard';
+import { DemoModeIndicator } from '../components/UI/DemoModeIndicator';
 import { useApp } from '../context/useApp';
 import { CheckCircle2, Clock, Target, TrendingUp, FolderOpen, Users } from 'lucide-react';
 import { calculateOverallProgress } from '../utils/progress';
@@ -35,8 +36,14 @@ export function Dashboard() {
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      {/* Demo Mode Banner */}
+      <DemoModeIndicator variant="banner" />
+
       <div>
-        <h1 className="text-xl md:text-2xl font-semibold text-stone-100 mb-2">Dashboard</h1>
+        <div className="flex items-center space-x-3 mb-2">
+          <h1 className="text-xl md:text-2xl font-semibold text-stone-100">Dashboard</h1>
+          <DemoModeIndicator variant="badge" />
+        </div>
         <p className="text-stone-400">Your productivity overview</p>
       </div>
 
@@ -118,7 +125,10 @@ export function Dashboard() {
       {/* Progress Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         <Card>
-          <h3 className="text-base md:text-lg font-medium text-stone-100 mb-4">Overall Goal Progress</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base md:text-lg font-medium text-stone-100">Overall Goal Progress</h3>
+            <DemoModeIndicator variant="tooltip" />
+          </div>
           <ProgressBar value={overallGoalProgress.percentage} showLabel color="green" />
           <div className="mt-4 text-xs md:text-sm text-stone-400">
             {completedGoals} of {totalGoals} goals completed
@@ -126,7 +136,10 @@ export function Dashboard() {
         </Card>
 
         <Card>
-          <h3 className="text-base md:text-lg font-medium text-stone-100 mb-4">Task Completion</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base md:text-lg font-medium text-stone-100">Task Completion</h3>
+            <DemoModeIndicator variant="tooltip" />
+          </div>
           <ProgressBar value={completionRate} showLabel color="blue" />
           <div className="mt-4 text-xs md:text-sm text-stone-400">
             {completedTasks} of {totalTasks} tasks completed
@@ -134,7 +147,10 @@ export function Dashboard() {
         </Card>
 
         <Card>
-          <h3 className="text-base md:text-lg font-medium text-stone-100 mb-4">Project Progress</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base md:text-lg font-medium text-stone-100">Project Progress</h3>
+            <DemoModeIndicator variant="tooltip" />
+          </div>
           <ProgressBar value={totalProjects > 0 ? (completedProjects / totalProjects) * 100 : 0} showLabel color="amber" />
           <div className="mt-4 text-xs md:text-sm text-stone-400">
             {completedProjects} of {totalProjects} projects completed
@@ -145,7 +161,10 @@ export function Dashboard() {
       {/* Goal Overview */}
       {state.goals.length > 0 && (
         <Card>
-          <h3 className="text-base md:text-lg font-medium text-stone-100 mb-4">Goal Progress Overview</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base md:text-lg font-medium text-stone-100">Goal Progress Overview</h3>
+            <DemoModeIndicator variant="badge" />
+          </div>
           <div className="space-y-4">
             {state.goals.map(goal => {
               const goalProjects = state.projects.filter(project => project.goalId === goal.id);
@@ -174,7 +193,10 @@ export function Dashboard() {
 
       {/* Recent Tasks with Context */}
       <Card>
-        <h3 className="text-base md:text-lg font-medium text-stone-100 mb-4">Recent Tasks</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base md:text-lg font-medium text-stone-100">Recent Tasks</h3>
+          <DemoModeIndicator variant="badge" />
+        </div>
         <div className="space-y-3">
           {recentTasks.map(task => {
             const associatedProject = state.projects.find(project => project.id === task.projectId);

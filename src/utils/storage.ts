@@ -1,4 +1,4 @@
-import { Task, Project, Goal, Analytics, UserSettings } from '../types';
+import { Task, Project, Goal, Analytics, UserSettings, AuthenticationState } from '../types';
 
 // AppState interface matching the one in AppContext
 interface AppState {
@@ -10,6 +10,7 @@ interface AppState {
   selectedProject: string | null;
   selectedPriority: string | null;
   userSettings: UserSettings;
+  authentication: AuthenticationState;
 }
 
 /**
@@ -99,7 +100,7 @@ export function deserializeState(data: string): AppState {
     }
     
     // Basic validation of required properties
-    const requiredProps = ['tasks', 'projects', 'goals', 'analytics', 'searchQuery', 'selectedProject', 'selectedPriority', 'userSettings'];
+    const requiredProps = ['tasks', 'projects', 'goals', 'analytics', 'searchQuery', 'selectedProject', 'selectedPriority', 'userSettings', 'authentication'];
     for (const prop of requiredProps) {
       if (!(prop in deserializedState)) {
         throw new Error(`Missing required property: ${prop}`);

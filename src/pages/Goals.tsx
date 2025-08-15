@@ -6,6 +6,7 @@ import { ProgressBar } from '../components/UI/ProgressBar';
 import { GoalForm } from '../components/Goals/GoalForm';
 import { ValidationErrors, ValidationInfo } from '../components/UI/ValidationErrors';
 import { EmptyState } from '../components/UI/EmptyState';
+import { DemoModeIndicator } from '../components/UI/DemoModeIndicator';
 import { useApp } from '../context/useApp';
 import { Plus, Target, Calendar, CheckCircle2, Circle, FolderOpen, Users, ChevronDown, ChevronRight, Link, Clock, Flag, Filter, X, Zap, Hand } from 'lucide-react';
 import { format } from 'date-fns';
@@ -178,6 +179,9 @@ export function Goals() {
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      {/* Demo Mode Banner */}
+      <DemoModeIndicator variant="banner" />
+
       {/* Validation Messages */}
       <ValidationErrors 
         errors={validationErrors} 
@@ -198,7 +202,10 @@ export function Goals() {
       
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold text-stone-100 mb-2">Goals</h1>
+          <div className="flex items-center space-x-3 mb-2">
+            <h1 className="text-xl md:text-2xl font-semibold text-stone-100">Goals</h1>
+            <DemoModeIndicator variant="badge" />
+          </div>
           <p className="text-stone-400">{state.goals.length} active goals</p>
         </div>
         <Button onClick={() => setShowGoalForm(true)}>
@@ -213,6 +220,7 @@ export function Goals() {
           <div className="flex items-center space-x-2">
             <Filter className="w-4 h-4 text-stone-500" />
             <span className="text-xs sm:text-sm font-medium text-stone-300">Milestone Filter:</span>
+            <DemoModeIndicator variant="tooltip" />
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
@@ -293,6 +301,7 @@ export function Goals() {
                     <div className="flex items-center space-x-3">
                       <Target className="w-5 h-5 md:w-6 md:h-6 text-amber-600" />
                       <h3 className="text-lg md:text-xl font-semibold text-stone-100">{goal.title}</h3>
+                      <DemoModeIndicator variant="badge" />
                     </div>
                     {goal.description && (
                       <p className="text-sm md:text-base text-stone-400">{goal.description}</p>
@@ -306,12 +315,18 @@ export function Goals() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                   <div className="space-y-3">
-                    <h4 className="text-sm md:text-base font-medium text-stone-100">Overall Progress</h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm md:text-base font-medium text-stone-100">Overall Progress</h4>
+                      <DemoModeIndicator variant="tooltip" />
+                    </div>
                     <ProgressBar value={goal.progress} showLabel color="green" />
                   </div>
 
                   <div className="space-y-3">
-                    <h4 className="text-sm md:text-base font-medium text-stone-100">Project Progress</h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm md:text-base font-medium text-stone-100">Project Progress</h4>
+                      <DemoModeIndicator variant="tooltip" />
+                    </div>
                     <ProgressBar value={totalProjects > 0 ? (completedProjects / totalProjects) * 100 : 0} showLabel color="amber" />
                     <p className="text-xs md:text-sm text-stone-400">
                       {completedProjects} of {totalProjects} projects completed
@@ -319,7 +334,10 @@ export function Goals() {
                   </div>
 
                   <div className="space-y-3">
-                    <h4 className="text-sm md:text-base font-medium text-stone-100">Task Progress</h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm md:text-base font-medium text-stone-100">Task Progress</h4>
+                      <DemoModeIndicator variant="tooltip" />
+                    </div>
                     <ProgressBar value={totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0} showLabel color="blue" />
                     <p className="text-xs md:text-sm text-stone-400">
                       {completedTasks} of {totalTasks} tasks completed
@@ -329,10 +347,13 @@ export function Goals() {
 
                 {goalProjects.length > 0 && (
                   <div className="space-y-3">
-                    <h4 className="text-sm md:text-base font-medium text-stone-100 flex items-center">
-                      <FolderOpen className="w-4 h-4 mr-2" />
-                      Associated Projects ({totalProjects})
-                    </h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm md:text-base font-medium text-stone-100 flex items-center">
+                        <FolderOpen className="w-4 h-4 mr-2" />
+                        Associated Projects ({totalProjects})
+                      </h4>
+                      <DemoModeIndicator variant="badge" />
+                    </div>
                     <div className="space-y-3">
                       {goalProjects.map(project => {
                         const projectTasks = state.tasks.filter(task => task.projectId === project.id);
@@ -351,6 +372,7 @@ export function Goals() {
                               <div className="flex items-center space-x-2 text-xs text-stone-500">
                                 <Users className="w-3 h-3" />
                                 <span>{projectTasks.length} tasks</span>
+                                <DemoModeIndicator variant="tooltip" />
                               </div>
                             </div>
                             <div className="space-y-2">
@@ -371,14 +393,17 @@ export function Goals() {
 
                 {filteredMilestones.length > 0 && (
                   <div className="space-y-3">
-                    <h4 className="text-sm md:text-base font-medium text-stone-100">
-                      Milestones
-                      {selectedProjectFilter && (
-                        <span className="text-stone-400 ml-2">
-                          (Filtered: {filteredMilestones.length} of {goal.milestones.length})
-                        </span>
-                      )}
-                    </h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm md:text-base font-medium text-stone-100">
+                        Milestones
+                        {selectedProjectFilter && (
+                          <span className="text-stone-400 ml-2">
+                            (Filtered: {filteredMilestones.length} of {goal.milestones.length})
+                          </span>
+                        )}
+                      </h4>
+                      <DemoModeIndicator variant="badge" />
+                    </div>
                     
                     {/* Milestone Completion Info */}
                     <div className="mb-4 p-3 bg-stone-800/50 border border-stone-700 rounded-lg">

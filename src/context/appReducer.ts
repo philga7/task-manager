@@ -1,4 +1,4 @@
-import { Task, Project, Goal, Milestone, UserSettings } from '../types';
+import { Task, Project, Goal, Milestone, UserSettings, User, AuthenticationState } from '../types';
 import { calculateProjectProgress, calculateGoalProgress } from '../utils/progress';
 import { validateTaskData, validateGoalData, validateMilestoneTaskAssociation, validateMilestoneTaskConsistency } from '../utils/validation';
 
@@ -17,6 +17,7 @@ interface AppState {
   selectedProject: string | null;
   selectedPriority: string | null;
   userSettings: UserSettings;
+  authentication: AuthenticationState;
 }
 
 type AppAction =
@@ -37,7 +38,12 @@ type AppAction =
   | { type: 'SET_SELECTED_PRIORITY'; payload: string | null }
   | { type: 'UPDATE_USER_PROFILE'; payload: { name: string; email: string } }
   | { type: 'UPDATE_NOTIFICATION_SETTINGS'; payload: { emailTasks: boolean; dailySummary: boolean; weeklyReports: boolean } }
-  | { type: 'UPDATE_APPEARANCE_SETTINGS'; payload: { theme: string; accentColor: string } };
+  | { type: 'UPDATE_APPEARANCE_SETTINGS'; payload: { theme: string; accentColor: string } }
+  | { type: 'LOGIN'; payload: User }
+  | { type: 'LOGOUT' }
+  | { type: 'SWITCH_TO_DEMO' }
+  | { type: 'SWITCH_TO_AUTH' }
+  | { type: 'LOAD_USER_DATA'; payload: AppState };
 
 // Helper function to update project progress based on tasks
 function updateProjectProgress(projects: Project[], tasks: Task[]): Project[] {
@@ -416,6 +422,54 @@ export function appReducer(state: AppState, action: AppAction): AppState {
             accentColor: action.payload.accentColor
           }
         }
+      };
+    case 'LOGIN':
+      return {
+        ...state,
+        authentication: {
+          ...state.authentication,
+          isAuthenticated: true,
+          user: action.payload
+        }
+      };
+    case 'LOGOUT':
+      return {
+        ...state,
+        authentication: {
+          ...state.authentication,
+          isAuthenticated: false,
+          user: null
+        }
+      };
+    case 'SWITCH_TO_DEMO':
+      return {
+        ...state,
+        authentication: {
+          ...state.authentication,
+          isAuthenticated: true,
+          isDemoMode: true,
+          user: {
+            id: 'demo-user-id',
+            name: 'Demo User',
+            email: 'demo@example.com',
+            createdAt: new Date()
+          }
+        }
+      };
+    case 'SWITCH_TO_AUTH':
+      return {
+        ...state,
+        authentication: {
+          ...state.authentication,
+          isAuthenticated: false,
+          isDemoMode: false,
+          user: null
+        }
+      };
+    case 'LOAD_USER_DATA':
+      return {
+        ...action.payload,
+        authentication: state.authentication // Preserve current authentication state
       };
     default:
       return state;
