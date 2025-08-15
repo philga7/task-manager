@@ -13,7 +13,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
-  const handleLogin = (email: string, password: string) => {
+  const handleLogin = (email: string) => {
     // For demo purposes, create a mock user
     const mockUser = {
       id: `user-${Date.now()}`,
@@ -25,7 +25,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     setIsAuthModalOpen(false);
   };
 
-  const handleRegister = (name: string, email: string, password: string) => {
+  const handleRegister = (name: string, email: string) => {
     // For demo purposes, create a mock user
     const mockUser = {
       id: `user-${Date.now()}`,
@@ -45,17 +45,8 @@ export function Header({ onMenuClick }: HeaderProps) {
     dispatch({ type: 'SWITCH_TO_DEMO' });
   };
 
-  const handleSwitchToAuth = () => {
-    dispatch({ type: 'SWITCH_TO_AUTH' });
-  };
-
   const openLoginModal = () => {
     setAuthMode('login');
-    setIsAuthModalOpen(true);
-  };
-
-  const openRegisterModal = () => {
-    setAuthMode('register');
     setIsAuthModalOpen(true);
   };
 

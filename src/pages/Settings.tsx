@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { Card } from '../components/UI/Card';
 import { Button } from '../components/UI/Button';
 import { useApp } from '../context/useApp';
-import { User, Bell, Palette, Shield, Download, LogOut, LogIn, Play, Settings as SettingsIcon, AlertTriangle } from 'lucide-react';
+import { User, Bell, Palette, Shield, LogOut, LogIn, Play, AlertTriangle, Save, Upload, Database } from 'lucide-react';
 import { AuthModal } from '../components/Auth/AuthModal';
+import { DataRecovery } from '../utils/storage';
 
 export function Settings() {
   const { state, dispatch } = useApp();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
-  const handleLogin = (email: string, password: string) => {
+  const handleLogin = (email: string) => {
     // For demo purposes, create a mock user
     const mockUser = {
       id: `user-${Date.now()}`,
@@ -22,7 +23,7 @@ export function Settings() {
     setIsAuthModalOpen(false);
   };
 
-  const handleRegister = (name: string, email: string, password: string) => {
+  const handleRegister = (name: string, email: string) => {
     // For demo purposes, create a mock user
     const mockUser = {
       id: `user-${Date.now()}`,
@@ -45,6 +46,44 @@ export function Settings() {
   const handleSwitchToAuth = () => {
     dispatch({ type: 'SWITCH_TO_AUTH' });
   };
+
+  // Data backup and restore functions
+  const handleExportData = () => {
+    const userId = state.authentication.user?.id || 'demo';
+    const backupData = DataRecovery.exportUserData(userId);
+    
+    // Create and download backup file
+    const blob = new Blob([backupData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `task-manager-backup-${userId}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const backupData = e.target?.result as string;
+      const success = await DataRecovery.importUserData(backupData);
+      
+      if (success) {
+        alert('Data imported successfully! Please refresh the page to see your restored data.');
+        window.location.reload();
+      } else {
+        alert('Failed to import data. Please check the backup file format.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const storageStats = DataRecovery.getStorageStats();
 
   const openLoginModal = () => {
     setAuthMode('login');
@@ -329,17 +368,80 @@ export function Settings() {
           {/* Data & Privacy */}
           <Card>
             <div className="flex items-center space-x-3 mb-4">
-              <Shield className="w-5 h-5 text-stone-600" />
+              <Database className="w-5 h-5 text-stone-600" />
               <h3 className="text-base md:text-lg font-medium text-stone-100">Data & Privacy</h3>
             </div>
-            <div className="space-y-3">
-              <Button variant="secondary" size="sm" onClick={handleExportData}>
-                <Download className="w-4 h-4 mr-2" />
-                Export Data
-              </Button>
-              <p className="text-xs md:text-sm text-stone-400">
-                Download all your tasks, projects, and goals in JSON format.
-              </p>
+            <div className="space-y-4">
+              {/* Storage Statistics */}
+              <div>
+                <h4 className="text-sm font-medium text-stone-200 mb-2">Storage Usage</h4>
+                <div className="text-xs text-stone-400 space-y-1">
+                  <div>localStorage: {(storageStats.localStorage / 1024).toFixed(2)} KB</div>
+                  <div>sessionStorage: {(storageStats.sessionStorage / 1024).toFixed(2)} KB</div>
+                </div>
+              </div>
+              
+              {/* Data Export */}
+              <div>
+                <h4 className="text-sm font-medium text-stone-200 mb-2">Data Export</h4>
+                <p className="text-xs text-stone-400 mb-3">
+                  Export your data for backup or transfer to another device. This includes all your tasks, projects, and goals.
+                </p>
+                <Button variant="secondary" size="sm" onClick={handleExportData}>
+                  <Save className="w-4 h-4 mr-2" />
+                  Export Data
+                </Button>
+              </div>
+              
+              {/* Data Import */}
+              <div>
+                <h4 className="text-sm font-medium text-stone-200 mb-2">Data Import</h4>
+                <p className="text-xs text-stone-400 mb-3">
+                  Import previously exported data. This will replace your current data.
+                </p>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleImportData}
+                    className="hidden"
+                    id="import-file"
+                  />
+                  <label htmlFor="import-file">
+                    <Button variant="secondary" size="sm" asChild>
+                      <span>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Import Data
+                      </span>
+                    </Button>
+                  </label>
+                </div>
+              </div>
+              
+              {/* Clear Data */}
+              <div>
+                <h4 className="text-sm font-medium text-stone-200 mb-2">Clear All Data</h4>
+                <p className="text-xs text-stone-400 mb-3">
+                  Permanently delete all your data. This action cannot be undone.
+                </p>
+                <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
+                  Clear All Data
+                </Button>
+              </div>
+              
+              {/* Storage Protection Info */}
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <Database className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-300 mb-1">Storage Protection</p>
+                    <p className="text-xs text-blue-200">
+                      Your data is stored in multiple locations (localStorage, sessionStorage, IndexedDB, and cookies) 
+                      to prevent accidental loss. Regular backups are recommended.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </Card>
         </div>

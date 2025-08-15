@@ -240,3 +240,327 @@ export function getTotalStorageSize(): number {
     return 0;
   }
 }
+
+// Enhanced storage with multiple fallbacks and obfuscation
+export class RobustStorage {
+  private static readonly STORAGE_KEYS = {
+    PRIMARY: 'tm_primary_data',
+    BACKUP: 'tm_backup_data',
+    SESSION: 'tm_session_data',
+    INDEXED_DB: 'taskManagerDB'
+  };
+
+  // Simple obfuscation (not encryption, just makes it harder to read)
+  private static obfuscate(data: string): string {
+    return btoa(data + '_' + Date.now());
+  }
+
+  private static deobfuscate(obfuscatedData: string): string | null {
+    try {
+      const decoded = atob(obfuscatedData);
+      return decoded.split('_')[0];
+    } catch {
+      return null;
+    }
+  }
+
+  // Try multiple storage mechanisms
+  static async save(key: string, data: unknown): Promise<boolean> {
+    const serializedData = JSON.stringify(data);
+    const obfuscatedData = this.obfuscate(serializedData);
+    
+    // Try localStorage first
+    try {
+      if (isStorageAvailable()) {
+        localStorage.setItem(key, obfuscatedData);
+        
+        // Also save to sessionStorage as backup
+        sessionStorage.setItem(key, obfuscatedData);
+        
+        // Save to multiple localStorage keys for redundancy
+        localStorage.setItem(`${key}_backup`, obfuscatedData);
+        localStorage.setItem(`${key}_${Date.now()}`, obfuscatedData);
+        
+        return true;
+      }
+    } catch (error) {
+      console.warn('localStorage save failed:', error);
+    }
+
+    // Try IndexedDB as fallback
+    try {
+      await this.saveToIndexedDB(key, obfuscatedData);
+      return true;
+    } catch (error) {
+      console.warn('IndexedDB save failed:', error);
+    }
+
+    // Try cookies as last resort
+    try {
+      document.cookie = `${key}=${encodeURIComponent(obfuscatedData)}; max-age=31536000; path=/`;
+      return true;
+    } catch (error) {
+      console.warn('Cookie save failed:', error);
+    }
+
+    return false;
+  }
+
+  static async load(key: string): Promise<unknown | null> {
+    // Try localStorage first
+    try {
+      if (isStorageAvailable()) {
+        const data = localStorage.getItem(key);
+        if (data) {
+          const deobfuscated = this.deobfuscate(data);
+          if (deobfuscated) {
+            return JSON.parse(deobfuscated);
+          }
+        }
+
+        // Try backup key
+        const backupData = localStorage.getItem(`${key}_backup`);
+        if (backupData) {
+          const deobfuscated = this.deobfuscate(backupData);
+          if (deobfuscated) {
+            return JSON.parse(deobfuscated);
+          }
+        }
+
+        // Try sessionStorage
+        const sessionData = sessionStorage.getItem(key);
+        if (sessionData) {
+          const deobfuscated = this.deobfuscate(sessionData);
+          if (deobfuscated) {
+            return JSON.parse(deobfuscated);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('localStorage load failed:', error);
+    }
+
+    // Try IndexedDB
+    try {
+      const indexedData = await this.loadFromIndexedDB(key);
+      if (indexedData) {
+        const deobfuscated = this.deobfuscate(indexedData);
+        if (deobfuscated) {
+          return JSON.parse(deobfuscated);
+        }
+      }
+    } catch (error) {
+      console.warn('IndexedDB load failed:', error);
+    }
+
+    // Try cookies
+    try {
+      const cookies = document.cookie.split(';');
+      for (const cookie of cookies) {
+        const [cookieKey, cookieValue] = cookie.trim().split('=');
+        if (cookieKey === key) {
+          const deobfuscated = this.deobfuscate(decodeURIComponent(cookieValue));
+          if (deobfuscated) {
+            return JSON.parse(deobfuscated);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Cookie load failed:', error);
+    }
+
+    return null;
+  }
+
+  // IndexedDB helpers
+  private static async saveToIndexedDB(key: string, data: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.STORAGE_KEYS.INDEXED_DB, 1);
+      
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction(['data'], 'readwrite');
+        const store = transaction.objectStore('data');
+        const putRequest = store.put({ key, data, timestamp: Date.now() });
+        
+        putRequest.onsuccess = () => resolve();
+        putRequest.onerror = () => reject(putRequest.error);
+      };
+      
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('data')) {
+          db.createObjectStore('data', { keyPath: 'key' });
+        }
+      };
+    });
+  }
+
+  private static async loadFromIndexedDB(key: string): Promise<string | null> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.STORAGE_KEYS.INDEXED_DB, 1);
+      
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction(['data'], 'readonly');
+        const store = transaction.objectStore('data');
+        const getRequest = store.get(key);
+        
+        getRequest.onsuccess = () => {
+          resolve(getRequest.result?.data || null);
+        };
+        getRequest.onerror = () => reject(getRequest.error);
+      };
+      
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('data')) {
+          db.createObjectStore('data', { keyPath: 'key' });
+        }
+      };
+    });
+  }
+
+  // Clear all storage for a user
+  static async clear(key: string): Promise<void> {
+    try {
+      if (isStorageAvailable()) {
+        localStorage.removeItem(key);
+        localStorage.removeItem(`${key}_backup`);
+        sessionStorage.removeItem(key);
+        
+        // Clear all backup keys
+        const keys = Object.keys(localStorage);
+        keys.forEach(k => {
+          if (k.startsWith(key + '_')) {
+            localStorage.removeItem(k);
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('localStorage clear failed:', error);
+    }
+
+    try {
+      await this.clearFromIndexedDB(key);
+    } catch (error) {
+      console.warn('IndexedDB clear failed:', error);
+    }
+
+    try {
+      document.cookie = `${key}=; max-age=0; path=/`;
+    } catch (error) {
+      console.warn('Cookie clear failed:', error);
+    }
+  }
+
+  private static async clearFromIndexedDB(key: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.STORAGE_KEYS.INDEXED_DB, 1);
+      
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction(['data'], 'readwrite');
+        const store = transaction.objectStore('data');
+        const deleteRequest = store.delete(key);
+        
+        deleteRequest.onsuccess = () => resolve();
+        deleteRequest.onerror = () => reject(deleteRequest.error);
+      };
+    });
+  }
+}
+
+// Data recovery utility
+export class DataRecovery {
+  // Export all user data for backup
+  static exportUserData(userId: string): string {
+    const data: Record<string, unknown> = {};
+    
+    // Collect from all storage mechanisms
+    if (isStorageAvailable()) {
+      // localStorage
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.includes(userId) || key.includes('task-manager')) {
+          data[`localStorage_${key}`] = localStorage.getItem(key);
+        }
+      });
+      
+      // sessionStorage
+      const sessionKeys = Object.keys(sessionStorage);
+      sessionKeys.forEach(key => {
+        if (key.includes(userId) || key.includes('task-manager')) {
+          data[`sessionStorage_${key}`] = sessionStorage.getItem(key);
+        }
+      });
+    }
+    
+    // Add timestamp and user info
+    data.exportTimestamp = new Date().toISOString();
+    data.userId = userId;
+    
+    return JSON.stringify(data, null, 2);
+  }
+  
+  // Import user data from backup
+  static async importUserData(backupData: string): Promise<boolean> {
+    try {
+      const data = JSON.parse(backupData);
+      
+      // Restore to all storage mechanisms
+      for (const [key, value] of Object.entries(data)) {
+        if (typeof value === 'string' && key.startsWith('localStorage_')) {
+          const storageKey = key.replace('localStorage_', '');
+          localStorage.setItem(storageKey, value);
+        } else if (typeof value === 'string' && key.startsWith('sessionStorage_')) {
+          const storageKey = key.replace('sessionStorage_', '');
+          sessionStorage.setItem(storageKey, value);
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error importing backup data:', error);
+      return false;
+    }
+  }
+  
+  // Get storage usage statistics
+  static getStorageStats(): Record<string, number> {
+    const stats: Record<string, number> = {};
+    
+    if (isStorageAvailable()) {
+      // localStorage usage
+      let localStorageSize = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) {
+          const value = localStorage.getItem(key);
+          if (value) {
+            localStorageSize += key.length + value.length;
+          }
+        }
+      }
+      stats.localStorage = localStorageSize;
+      
+      // sessionStorage usage
+      let sessionStorageSize = 0;
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key) {
+          const value = sessionStorage.getItem(key);
+          if (value) {
+            sessionStorageSize += key.length + value.length;
+          }
+        }
+      }
+      stats.sessionStorage = sessionStorageSize;
+    }
+    
+    return stats;
+  }
+}

@@ -1,6 +1,6 @@
-import React, { createContext, useReducer, ReactNode, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useReducer, ReactNode, useEffect, useCallback, useRef, useState } from 'react';
 import { appReducer, type AppState, type AppAction } from './appReducer';
-import { saveToStorage, loadFromStorage, isStorageAvailable } from '../utils/storage';
+import { saveToStorage, loadFromStorage, isStorageAvailable, RobustStorage } from '../utils/storage';
 import { calculateProjectProgress, calculateGoalProgress } from '../utils/progress';
 
 const initialState: AppState = {
@@ -149,29 +149,45 @@ function migrateState(savedState: LegacyState): AppState {
 }
 
 // Helper function to load state from appropriate storage key
-function loadStateFromStorage(authentication: AppState['authentication']): AppState | null {
+async function loadStateFromStorage(authentication: AppState['authentication']): Promise<AppState | null> {
   try {
-    if (!isStorageAvailable()) {
-      console.warn('localStorage is not available, using initial state');
-      return null;
-    }
-
     const storageKey = getCurrentStorageKey(authentication);
     console.log(`Attempting to load state from storage key: ${storageKey}`);
-    
-    const savedState = loadFromStorage(storageKey);
+
+    // Try robust storage first
+    const savedState = await RobustStorage.load(storageKey);
     if (savedState) {
-      console.log(`Loaded state from storage key: ${storageKey}`);
+      console.log(`Loaded state from robust storage key: ${storageKey}`);
       return migrateState(savedState);
+    }
+
+    // Fallback to simple storage
+    if (isStorageAvailable()) {
+      const simpleState = loadFromStorage(storageKey);
+      if (simpleState) {
+        console.log(`Loaded state from simple storage key: ${storageKey}`);
+        return migrateState(simpleState);
+      }
     }
 
     // If no data found in current storage key, try legacy key for backward compatibility
     if (storageKey !== LEGACY_STORAGE_KEY) {
       console.log('No data found in current storage key, trying legacy key for backward compatibility');
-      const legacyState = loadFromStorage(LEGACY_STORAGE_KEY);
+      
+      // Try robust storage for legacy key
+      const legacyState = await RobustStorage.load(LEGACY_STORAGE_KEY);
       if (legacyState) {
-        console.log('Loaded state from legacy storage key');
+        console.log('Loaded state from robust legacy storage key');
         return migrateState(legacyState);
+      }
+
+      // Try simple storage for legacy key
+      if (isStorageAvailable()) {
+        const simpleLegacyState = loadFromStorage(LEGACY_STORAGE_KEY);
+        if (simpleLegacyState) {
+          console.log('Loaded state from simple legacy storage key');
+          return migrateState(simpleLegacyState);
+        }
       }
     }
 
@@ -189,16 +205,32 @@ export const AppContext = createContext<{
 } | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  // State to track if initial load is complete
+  const [isInitialized, setIsInitialized] = useState(false);
+  
   // Lazy initialization to load state from localStorage on first render
   const [state, dispatch] = useReducer(appReducer, initialState, () => {
-    const loadedState = loadStateFromStorage(initialState.authentication);
-    return loadedState || initialState;
+    // Start with initial state, will be updated after async load
+    return initialState;
   });
+
+  // Load initial state asynchronously
+  useEffect(() => {
+    const loadInitialState = async () => {
+      const loadedState = await loadStateFromStorage(initialState.authentication);
+      if (loadedState) {
+        dispatch({ type: 'LOAD_USER_DATA', payload: loadedState });
+      }
+      setIsInitialized(true);
+    };
+    
+    loadInitialState();
+  }, []);
 
   // Ref to store the debounce timeout
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Debounced save function with authentication-aware storage key
+  // Debounced save function with robust storage
   const debouncedSave = useCallback((currentState: AppState) => {
     // Clear existing timeout
     if (saveTimeoutRef.current) {
@@ -206,15 +238,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     // Set new timeout
-    saveTimeoutRef.current = setTimeout(() => {
+    saveTimeoutRef.current = setTimeout(async () => {
       try {
-        if (isStorageAvailable()) {
-          const storageKey = getCurrentStorageKey(currentState.authentication);
-          saveToStorage(storageKey, currentState);
-          console.log(`State saved to storage key: ${storageKey}`);
+        const storageKey = getCurrentStorageKey(currentState.authentication);
+        
+        // Try robust storage first, fallback to simple storage
+        const success = await RobustStorage.save(storageKey, currentState);
+        if (success) {
+          console.log(`State saved to robust storage key: ${storageKey}`);
+        } else {
+          console.warn('Robust storage failed, falling back to simple storage');
+          if (isStorageAvailable()) {
+            saveToStorage(storageKey, currentState);
+            console.log(`State saved to simple storage key: ${storageKey}`);
+          }
         }
       } catch (error) {
         console.error('Error saving state to storage:', error);
+        // Fallback to simple storage
+        try {
+          if (isStorageAvailable()) {
+            const storageKey = getCurrentStorageKey(currentState.authentication);
+            saveToStorage(storageKey, currentState);
+            console.log(`State saved to fallback storage key: ${storageKey}`);
+          }
+        } catch (fallbackError) {
+          console.error('Fallback storage also failed:', fallbackError);
+        }
       }
     }, DEBOUNCE_DELAY);
   }, []);
@@ -240,22 +290,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     if (authChanged && (authentication.isAuthenticated || authentication.isDemoMode)) {
       console.log('Authentication state changed, loading user data...');
-      const loadedState = loadStateFromStorage(authentication);
-      if (loadedState) {
-        // Update state with loaded data while preserving authentication state
-        const updatedState = {
-          ...loadedState,
-          authentication: authentication
-        };
-        
-        // Dispatch a custom action to update the state
-        dispatch({ type: 'LOAD_USER_DATA', payload: updatedState });
-      }
+      
+      const loadUserData = async () => {
+        const loadedState = await loadStateFromStorage(authentication);
+        if (loadedState) {
+          // Update state with loaded data while preserving authentication state
+          const updatedState = {
+            ...loadedState,
+            authentication: authentication
+          };
+          
+          // Dispatch a custom action to update the state
+          dispatch({ type: 'LOAD_USER_DATA', payload: updatedState });
+        }
+      };
+      
+      loadUserData();
     }
     
     // Update the ref with current authentication state
     prevAuthRef.current = authentication;
-  }, [state.authentication, dispatch]);
+  }, [state.authentication, dispatch, state]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -265,6 +320,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     };
   }, []);
+
+  // Show loading state until initial data is loaded
+  if (!isInitialized) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-stone-900">
+        <div className="text-stone-400">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>
