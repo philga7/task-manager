@@ -4,6 +4,7 @@ import { Button } from '../components/UI/Button';
 import { TaskCard } from '../components/Tasks/TaskCard';
 import { TaskForm } from '../components/Tasks/TaskForm';
 import { EmptyState } from '../components/UI/EmptyState';
+import { DemoModeIndicator } from '../components/UI/DemoModeIndicator';
 import { useApp } from '../context/useApp';
 import { Plus, Filter, SortDesc } from 'lucide-react';
 
@@ -58,9 +59,15 @@ export function Tasks() {
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      {/* Demo Mode Banner */}
+      <DemoModeIndicator variant="banner" />
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold text-stone-100 mb-2">Tasks</h1>
+          <div className="flex items-center space-x-3 mb-2">
+            <h1 className="text-xl md:text-2xl font-semibold text-stone-100">Tasks</h1>
+            <DemoModeIndicator variant="badge" />
+          </div>
           <p className="text-stone-400">{filteredTasks.length} tasks found</p>
         </div>
         <Button onClick={() => setShowTaskForm(true)}>
@@ -75,6 +82,7 @@ export function Tasks() {
           <div className="flex items-center space-x-2">
             <Filter className="w-4 h-4 text-stone-500" />
             <span className="text-xs sm:text-sm font-medium text-stone-300">Filters:</span>
+            <DemoModeIndicator variant="tooltip" />
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
@@ -140,10 +148,16 @@ export function Tasks() {
 
       {/* Tasks Grid */}
       {sortedTasks.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-          {sortedTasks.map(task => (
-            <TaskCard key={task.id} task={task} />
-          ))}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-stone-300">Task List</h3>
+            <DemoModeIndicator variant="badge" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+            {sortedTasks.map(task => (
+              <TaskCard key={task.id} task={task} />
+            ))}
+          </div>
         </div>
       ) : (
         <EmptyState 

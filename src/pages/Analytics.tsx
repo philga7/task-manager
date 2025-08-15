@@ -2,6 +2,7 @@ import React from 'react';
 import { Card } from '../components/UI/Card';
 import { ProgressBar } from '../components/UI/ProgressBar';
 import { EmptyState } from '../components/UI/EmptyState';
+import { DemoModeIndicator } from '../components/UI/DemoModeIndicator';
 import { useApp } from '../context/useApp';
 import { TrendingUp, Clock, Target, Zap } from 'lucide-react';
 
@@ -17,8 +18,14 @@ export function Analytics() {
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      {/* Demo Mode Banner */}
+      <DemoModeIndicator variant="banner" />
+
       <div>
-        <h1 className="text-xl md:text-2xl font-semibold text-stone-100 mb-2">Analytics</h1>
+        <div className="flex items-center space-x-3 mb-2">
+          <h1 className="text-xl md:text-2xl font-semibold text-stone-100">Analytics</h1>
+          <DemoModeIndicator variant="badge" />
+        </div>
         <p className="text-stone-400">Your productivity insights and trends</p>
       </div>
 
@@ -88,7 +95,10 @@ export function Analytics() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <Card>
-          <h3 className="text-base md:text-lg font-medium text-stone-100 mb-4">Weekly Productivity</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base md:text-lg font-medium text-stone-100">Weekly Productivity</h3>
+            <DemoModeIndicator variant="badge" />
+          </div>
           <div className="space-y-3">
             {days.map((day, index) => (
               <div key={day} className="flex items-center space-x-3">
@@ -103,7 +113,10 @@ export function Analytics() {
         </Card>
 
         <Card>
-          <h3 className="text-base md:text-lg font-medium text-stone-100 mb-4">Task Distribution</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base md:text-lg font-medium text-stone-100">Task Distribution</h3>
+            <DemoModeIndicator variant="badge" />
+          </div>
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-xs md:text-sm text-stone-400">Completed</span>
@@ -127,7 +140,10 @@ export function Analytics() {
 
       {/* Goal Progress */}
       <Card>
-        <h3 className="text-base md:text-lg font-medium text-stone-100 mb-4">Goal Progress</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base md:text-lg font-medium text-stone-100">Goal Progress</h3>
+          <DemoModeIndicator variant="badge" />
+        </div>
         <div className="space-y-4">
           {state.goals.map(goal => (
             <div key={goal.id} className="space-y-2">

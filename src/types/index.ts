@@ -73,6 +73,20 @@ export interface UserSettings {
   appearance: AppearanceSettings;
 }
 
+// Authentication types
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: Date;
+}
+
+export interface AuthenticationState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isDemoMode: boolean;
+}
+
 // Utility types for progress calculation
 export interface ProgressCalculation {
   total: number;
