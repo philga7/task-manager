@@ -29,20 +29,7 @@ jobs:
       - name: Build project
         run: npm run build
         
-      - name: Debug Vercel Configuration
-        run: |
-          echo "Checking Vercel configuration..."
-          echo "VERCEL_ORG_ID length: ${#VERCEL_ORG_ID}"
-          echo "VERCEL_PROJECT_ID length: ${#VERCEL_PROJECT_ID}"
-          echo "VERCEL_TOKEN length: ${#VERCEL_TOKEN}"
-          if [ -z "$VERCEL_ORG_ID" ]; then echo "ERROR: VERCEL_ORG_ID is empty"; fi
-          if [ -z "$VERCEL_PROJECT_ID" ]; then echo "ERROR: VERCEL_PROJECT_ID is empty"; fi
-          if [ -z "$VERCEL_TOKEN" ]; then echo "ERROR: VERCEL_TOKEN is empty"; fi
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          
+
       - name: Deploy to Vercel
         uses: amondnet/vercel-action@v25
         with:
