@@ -2,6 +2,7 @@ import React, { createContext, useReducer, ReactNode, useEffect, useCallback, us
 import { appReducer, type AppState, type AppAction } from './appReducer';
 import { saveToStorage, loadFromStorage, isStorageAvailable, RobustStorage } from '../utils/storage';
 import { calculateProjectProgress, calculateGoalProgress } from '../utils/progress';
+import { getCurrentSessionUser, updateSessionActivity } from '../utils/auth';
 
 const initialState: AppState = {
   tasks: [],
@@ -217,10 +218,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Load initial state asynchronously
   useEffect(() => {
     const loadInitialState = async () => {
-      const loadedState = await loadStateFromStorage(initialState.authentication);
-      if (loadedState) {
-        dispatch({ type: 'LOAD_USER_DATA', payload: loadedState });
+      // First, try to restore authentication state from session
+      const sessionUser = getCurrentSessionUser();
+      let restoredAuthState = initialState.authentication;
+      
+      if (sessionUser) {
+        console.log('Restoring authentication state from session:', sessionUser);
+        restoredAuthState = {
+          user: sessionUser,
+          isAuthenticated: true,
+          isDemoMode: sessionUser.id === 'demo-user-id'
+        };
       }
+      
+      // Then load user data from storage
+      const loadedState = await loadStateFromStorage(restoredAuthState);
+      if (loadedState) {
+        // If we have a session user, ensure the loaded state includes the authentication info
+        if (sessionUser) {
+          loadedState.authentication = restoredAuthState;
+        }
+        dispatch({ type: 'LOAD_USER_DATA', payload: loadedState });
+      } else if (sessionUser) {
+        // If no loaded state but we have a session user, create a basic state
+        const basicState = {
+          ...initialState,
+          authentication: restoredAuthState
+        };
+        dispatch({ type: 'LOAD_USER_DATA', payload: basicState });
+      }
+      
       setIsInitialized(true);
     };
     
@@ -327,6 +354,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Update the ref with current authentication state
     prevAuthRef.current = authentication;
   }, [state.authentication, dispatch, state]);
+
+  // Activity tracking to keep session alive
+  useEffect(() => {
+    const handleUserActivity = () => {
+      if (state.authentication.isAuthenticated) {
+        updateSessionActivity();
+      }
+    };
+
+    // Track user activity events
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    
+    events.forEach(event => {
+      document.addEventListener(event, handleUserActivity, { passive: true });
+    });
+
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, handleUserActivity);
+      });
+    };
+  }, [state.authentication.isAuthenticated]);
 
   // Cleanup timeout on unmount
   useEffect(() => {

@@ -9,8 +9,20 @@ interface StoredUser {
   createdAt: string; // ISO string for localStorage compatibility
 }
 
-// Storage key for registered users
+// Session storage interface
+interface SessionData {
+  userId: string;
+  email: string;
+  name: string;
+  loginTime: string; // ISO string
+  lastActivity: string; // ISO string
+  isDemoMode: boolean;
+}
+
+// Storage keys
 const USERS_STORAGE_KEY = 'task_manager_users';
+const SESSION_STORAGE_KEY = 'task_manager_session';
+const SESSION_TIMEOUT_HOURS = 24; // Session expires after 24 hours of inactivity
 
 /**
  * Simple password hashing function using btoa with salt
@@ -55,6 +67,165 @@ function saveUsers(users: StoredUser[]): void {
     console.error('Error saving users to localStorage:', error);
     throw new Error('Failed to save user data to storage');
   }
+}
+
+/**
+ * Save session data to localStorage
+ */
+function saveSession(sessionData: SessionData): void {
+  try {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
+  } catch (error) {
+    console.error('Error saving session to localStorage:', error);
+    throw new Error('Failed to save session data to storage');
+  }
+}
+
+/**
+ * Get session data from localStorage
+ */
+function getSession(): SessionData | null {
+  try {
+    const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!sessionData) {
+      return null;
+    }
+    
+    const session = JSON.parse(sessionData);
+    return session;
+  } catch (error) {
+    console.error('Error loading session from localStorage:', error);
+    return null;
+  }
+}
+
+/**
+ * Clear session data from localStorage
+ */
+function clearSession(): void {
+  try {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch (error) {
+    console.error('Error clearing session from localStorage:', error);
+  }
+}
+
+/**
+ * Check if session is valid and not expired
+ */
+function isSessionValid(session: SessionData): boolean {
+  const now = new Date();
+  const lastActivity = new Date(session.lastActivity);
+  const hoursSinceLastActivity = (now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60);
+  
+  return hoursSinceLastActivity < SESSION_TIMEOUT_HOURS;
+}
+
+/**
+ * Update session last activity time
+ */
+export function updateSessionActivity(): void {
+  const session = getSession();
+  if (session) {
+    session.lastActivity = new Date().toISOString();
+    saveSession(session);
+  }
+}
+
+/**
+ * Create a new session for a user
+ */
+export function createSession(user: User, isDemoMode: boolean = false): void {
+  const sessionData: SessionData = {
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    loginTime: new Date().toISOString(),
+    lastActivity: new Date().toISOString(),
+    isDemoMode
+  };
+  
+  saveSession(sessionData);
+}
+
+/**
+ * Get current session user if valid
+ */
+export function getCurrentSessionUser(): User | null {
+  const session = getSession();
+  
+  if (!session) {
+    return null;
+  }
+  
+  if (!isSessionValid(session)) {
+    console.log('Session expired, clearing session data');
+    clearSession();
+    return null;
+  }
+  
+  // For demo mode, return demo user
+  if (session.isDemoMode) {
+    return {
+      id: session.userId,
+      email: session.email,
+      name: session.name,
+      createdAt: new Date(session.loginTime)
+    };
+  }
+  
+  // For regular users, validate that user still exists in storage
+  if (!validateUserSession(session.userId)) {
+    console.log('User no longer exists in storage, clearing session');
+    clearSession();
+    return null;
+  }
+  
+  // Update last activity
+  updateSessionActivity();
+  
+  return {
+    id: session.userId,
+    email: session.email,
+    name: session.name,
+    createdAt: new Date(session.loginTime)
+  };
+}
+
+/**
+ * Clear current session (logout)
+ */
+export function clearCurrentSession(): void {
+  clearSession();
+}
+
+/**
+ * Check if user is currently logged in
+ */
+export function isUserLoggedIn(): boolean {
+  const session = getSession();
+  if (!session) {
+    return false;
+  }
+  
+  return isSessionValid(session);
+}
+
+/**
+ * Get session info for debugging
+ */
+export function getSessionInfo(): { isLoggedIn: boolean; isDemoMode: boolean; lastActivity: string | null } {
+  const session = getSession();
+  
+  if (!session) {
+    return { isLoggedIn: false, isDemoMode: false, lastActivity: null };
+  }
+  
+  return {
+    isLoggedIn: isSessionValid(session),
+    isDemoMode: session.isDemoMode,
+    lastActivity: session.lastActivity
+  };
 }
 
 /**

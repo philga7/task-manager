@@ -7,14 +7,53 @@ import { ProjectForm } from '../components/Projects/ProjectForm';
 import { EmptyState } from '../components/UI/EmptyState';
 import { DemoModeIndicator } from '../components/UI/DemoModeIndicator';
 import { useApp } from '../context/useApp';
-import { Plus, Calendar, Users, Target, Filter } from 'lucide-react';
+import { Plus, Calendar, Users, Target, Filter, Lock, LogIn } from 'lucide-react';
 import { format } from 'date-fns';
 import { getProjectProgressSummary } from '../utils/progress';
 
 export function Projects() {
   const { state } = useApp();
+  const { isAuthenticated, isDemoMode } = state.authentication;
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [selectedGoalFilter, setSelectedGoalFilter] = useState<string>('all');
+
+  // Show authentication prompt for unauthenticated users
+  if (!isAuthenticated && !isDemoMode) {
+    return (
+      <div className="p-4 md:p-6">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+          <div className="w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center">
+            <Lock className="w-8 h-8 text-stone-400" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-semibold text-stone-100">Authentication Required</h1>
+            <p className="text-stone-400 max-w-md">
+              Please log in or try demo mode to access your projects and track your progress.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => window.location.href = '/settings'}
+              className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Go to Login</span>
+            </button>
+            <button
+              onClick={() => {
+                // This will be handled by the demo mode button in the header
+                const demoButton = document.querySelector('[data-demo-button]') as HTMLButtonElement;
+                if (demoButton) demoButton.click();
+              }}
+              className="px-6 py-3 border border-stone-600 hover:border-stone-500 text-stone-300 hover:text-stone-200 rounded-lg font-medium transition-colors"
+            >
+              Try Demo Mode
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
@@ -101,27 +140,34 @@ export function Projects() {
                     )}
 
                     <div className="space-y-2">
-                      <div className="flex justify-between text-xs md:text-sm">
-                        <span className="text-stone-400">Progress</span>
-                        <span className="text-stone-100 font-medium">{progressSummary.percentage}%</span>
+                      <div className="flex items-center justify-between text-xs text-stone-500">
+                        <span>Progress</span>
+                        <span>{progressSummary.percentage}%</span>
                       </div>
-                      <ProgressBar value={progressSummary.percentage} color="amber" />
+                      <ProgressBar 
+                        progress={progressSummary.percentage} 
+                        color="blue"
+                        className="h-2"
+                      />
+                      <div className="flex items-center justify-between text-xs text-stone-500">
+                        <span>{progressSummary.completed} of {progressSummary.total} tasks</span>
+                        <span>{format(project.createdAt, 'MMM d')}</span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-stone-500">
-                      <div className="flex items-center space-x-1">
+                    <div className="flex items-center justify-between pt-2 border-t border-stone-700">
+                      <div className="flex items-center space-x-1 text-xs text-stone-500">
                         <Users className="w-3 h-3" />
                         <span>{projectTasks.length} tasks</span>
                       </div>
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center space-x-1 text-xs text-stone-500">
                         <Calendar className="w-3 h-3" />
-                        <span>{format(project.createdAt, 'MMM d')}</span>
+                        <span>{format(project.createdAt, 'MMM d, yyyy')}</span>
                       </div>
                     </div>
                   </div>
                 </Card>
-              );
-            })}
+              )})}
           </div>
         </div>
       ) : (

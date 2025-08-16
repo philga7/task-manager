@@ -4,11 +4,50 @@ import { ProgressBar } from '../components/UI/ProgressBar';
 import { EmptyState } from '../components/UI/EmptyState';
 import { DemoModeIndicator } from '../components/UI/DemoModeIndicator';
 import { useApp } from '../context/useApp';
-import { TrendingUp, Clock, Target, Zap } from 'lucide-react';
+import { TrendingUp, Clock, Target, Zap, Lock, LogIn } from 'lucide-react';
 
 export function Analytics() {
   const { state } = useApp();
+  const { isAuthenticated, isDemoMode } = state.authentication;
   const { analytics } = state;
+
+  // Show authentication prompt for unauthenticated users
+  if (!isAuthenticated && !isDemoMode) {
+    return (
+      <div className="p-4 md:p-6">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+          <div className="w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center">
+            <Lock className="w-8 h-8 text-stone-400" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-semibold text-stone-100">Authentication Required</h1>
+            <p className="text-stone-400 max-w-md">
+              Please log in or try demo mode to access your analytics and productivity insights.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => window.location.href = '/settings'}
+              className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Go to Login</span>
+            </button>
+            <button
+              onClick={() => {
+                // This will be handled by the demo mode button in the header
+                const demoButton = document.querySelector('[data-demo-button]') as HTMLButtonElement;
+                if (demoButton) demoButton.click();
+              }}
+              className="px-6 py-3 border border-stone-600 hover:border-stone-500 text-stone-300 hover:text-stone-200 rounded-lg font-medium transition-colors"
+            >
+              Try Demo Mode
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const weeklyData = [65, 75, 80, 85, 78, 82, 88];
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -100,13 +139,16 @@ export function Analytics() {
             <DemoModeIndicator variant="badge" />
           </div>
           <div className="space-y-3">
-            {days.map((day, index) => (
-              <div key={day} className="flex items-center space-x-3">
-                <span className="w-8 text-xs text-stone-600">{day}</span>
-                <div className="flex-1">
-                  <ProgressBar value={weeklyData[index]} size="sm" />
+            {weeklyData.map((value, index) => (
+              <div key={index} className="flex items-center space-x-3">
+                <span className="w-8 text-xs text-stone-600">{days[index]}</span>
+                <div className="flex-1 bg-stone-700 rounded-full h-2">
+                  <div 
+                    className="bg-amber-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${value}%` }}
+                  />
                 </div>
-                <span className="w-8 text-xs text-stone-400 text-right">{weeklyData[index]}%</span>
+                <span className="w-8 text-xs text-stone-400 text-right">{value}%</span>
               </div>
             ))}
           </div>
@@ -117,21 +159,21 @@ export function Analytics() {
             <h3 className="text-base md:text-lg font-medium text-stone-100">Task Distribution</h3>
             <DemoModeIndicator variant="badge" />
           </div>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
               <span className="text-xs md:text-sm text-stone-400">Completed</span>
               <span className="text-xs md:text-sm font-medium text-stone-100">{analytics.tasksCompleted}</span>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex items-center justify-between">
               <span className="text-xs md:text-sm text-stone-400">In Progress</span>
               <span className="text-xs md:text-sm font-medium text-stone-100">
-                {state.tasks.filter(t => t.status === 'in-progress').length}
+                {state.tasks.filter(task => task.status === 'in-progress').length}
               </span>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex items-center justify-between">
               <span className="text-xs md:text-sm text-stone-400">To Do</span>
               <span className="text-xs md:text-sm font-medium text-stone-100">
-                {state.tasks.filter(t => t.status === 'todo').length}
+                {state.tasks.filter(task => task.status === 'todo').length}
               </span>
             </div>
           </div>
@@ -139,23 +181,29 @@ export function Analytics() {
       </div>
 
       {/* Goal Progress */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base md:text-lg font-medium text-stone-100">Goal Progress</h3>
-          <DemoModeIndicator variant="badge" />
-        </div>
-        <div className="space-y-4">
-          {state.goals.map(goal => (
-            <div key={goal.id} className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm md:text-base font-medium text-stone-100">{goal.title}</span>
-                <span className="text-xs md:text-sm text-stone-400">{goal.progress}%</span>
+      {state.goals.length > 0 && (
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base md:text-lg font-medium text-stone-100">Goal Progress</h3>
+            <DemoModeIndicator variant="badge" />
+          </div>
+          <div className="space-y-3">
+            {state.goals.slice(0, 5).map(goal => (
+              <div key={goal.id} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm md:text-base font-medium text-stone-100">{goal.title}</span>
+                  <span className="text-xs md:text-sm text-stone-400">{goal.progress}%</span>
+                </div>
+                <ProgressBar 
+                  progress={goal.progress} 
+                  color="amber"
+                  className="h-2"
+                />
               </div>
-              <ProgressBar value={goal.progress} color="green" />
-            </div>
-          ))}
-        </div>
-      </Card>
+            ))}
+          </div>
+        </Card>
+      )}
         </>
       )}
     </div>
