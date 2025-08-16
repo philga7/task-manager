@@ -6,11 +6,14 @@ import { DemoModeIndicator } from '../components/UI/DemoModeIndicator';
 import { EmptyState } from '../components/UI/EmptyState';
 import { useApp } from '../context/useApp';
 import { CheckCircle2, Clock, Target, TrendingUp, FolderOpen, Users, Lock, LogIn } from 'lucide-react';
-import { calculateOverallProgress } from '../utils/progress';
+import { calculateOverallProgress, calculateRealTimeAnalytics } from '../utils/progress';
 
 export function Dashboard() {
   const { state } = useApp();
   const { isAuthenticated, isDemoMode } = state.authentication;
+  
+  // Calculate real-time analytics from actual task data
+  const realTimeAnalytics = calculateRealTimeAnalytics(state.tasks);
   
   // Show authentication prompt for unauthenticated users
   if (!isAuthenticated && !isDemoMode) {
@@ -179,7 +182,7 @@ export function Dashboard() {
             </div>
             <div>
               <p className="text-xs md:text-sm text-stone-400">Productivity</p>
-              <p className="text-lg md:text-2xl font-semibold text-stone-100">{state.analytics.productivity}%</p>
+              <p className="text-lg md:text-2xl font-semibold text-stone-100">{realTimeAnalytics.productivity}%</p>
             </div>
           </div>
         </Card>
