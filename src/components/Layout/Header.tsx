@@ -3,6 +3,7 @@ import { Search, Bell, User, Menu, LogOut, LogIn, Play, Shield } from 'lucide-re
 import { useApp } from '../../context/useApp';
 import { AuthModal } from '../Auth/AuthModal';
 import { Button } from '../UI/Button';
+import { authenticateUser, registerUser } from '../../utils/auth';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -12,29 +13,37 @@ export function Header({ onMenuClick }: HeaderProps) {
   const { state, dispatch } = useApp();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authError, setAuthError] = useState<string | undefined>();
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
 
-  const handleLogin = (email: string) => {
-    // For demo purposes, create a mock user
-    const mockUser = {
-      id: `user-${Date.now()}`,
-      name: email.split('@')[0],
-      email: email,
-      createdAt: new Date()
-    };
-    dispatch({ type: 'LOGIN', payload: mockUser });
-    setIsAuthModalOpen(false);
+  const handleLogin = async (email: string, password: string) => {
+    setAuthError(undefined);
+    setIsAuthLoading(true);
+    
+    try {
+      const user = authenticateUser(email, password);
+      dispatch({ type: 'LOGIN', payload: user });
+      setIsAuthModalOpen(false);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Login failed. Please try again.');
+    } finally {
+      setIsAuthLoading(false);
+    }
   };
 
-  const handleRegister = (name: string, email: string) => {
-    // For demo purposes, create a mock user
-    const mockUser = {
-      id: `user-${Date.now()}`,
-      name: name,
-      email: email,
-      createdAt: new Date()
-    };
-    dispatch({ type: 'LOGIN', payload: mockUser });
-    setIsAuthModalOpen(false);
+  const handleRegister = async (name: string, email: string, password: string) => {
+    setAuthError(undefined);
+    setIsAuthLoading(true);
+    
+    try {
+      const user = registerUser(email, password, name);
+      dispatch({ type: 'LOGIN', payload: user });
+      setIsAuthModalOpen(false);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Registration failed. Please try again.');
+    } finally {
+      setIsAuthLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -47,6 +56,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const openLoginModal = () => {
     setAuthMode('login');
+    setAuthError(undefined);
     setIsAuthModalOpen(true);
   };
 
@@ -156,6 +166,8 @@ export function Header({ onMenuClick }: HeaderProps) {
         onLogin={handleLogin}
         onRegister={handleRegister}
         defaultMode={authMode}
+        isLoading={isAuthLoading}
+        error={authError}
       />
     </>
   );

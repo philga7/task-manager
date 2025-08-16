@@ -43,7 +43,8 @@ type AppAction =
   | { type: 'LOGOUT' }
   | { type: 'SWITCH_TO_DEMO' }
   | { type: 'SWITCH_TO_AUTH' }
-  | { type: 'LOAD_USER_DATA'; payload: AppState };
+  | { type: 'LOAD_USER_DATA'; payload: AppState }
+  | { type: 'SYNC_PROFILE_DATA' };
 
 // Helper function to update project progress based on tasks
 function updateProjectProgress(projects: Project[], tasks: Task[]): Project[] {
@@ -71,6 +72,18 @@ function updateGoalProgress(goals: Goal[], projects: Project[]): Goal[] {
       projects: goalProjects
     };
   });
+}
+
+// Helper function to check if profile data needs syncing
+function needsProfileSync(authentication: AuthenticationState, userSettings: UserSettings): boolean {
+  if (!authentication.isAuthenticated || !authentication.user) {
+    return false;
+  }
+  
+  return (
+    authentication.user.name !== userSettings.profile.name ||
+    authentication.user.email !== userSettings.profile.email
+  );
 }
 
 // Helper function to update milestone completion based on task completion
@@ -390,6 +403,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_SELECTED_PRIORITY':
       return { ...state, selectedPriority: action.payload };
     case 'UPDATE_USER_PROFILE':
+      console.log('UPDATE_USER_PROFILE called with:', action.payload);
       return {
         ...state,
         userSettings: {
@@ -430,6 +444,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           ...state.authentication,
           isAuthenticated: true,
           user: action.payload
+        },
+        userSettings: {
+          ...state.userSettings,
+          profile: {
+            ...state.userSettings.profile,
+            name: action.payload.name,
+            email: action.payload.email
+          }
         }
       };
     case 'LOGOUT':
@@ -454,6 +476,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
             email: 'demo@example.com',
             createdAt: new Date()
           }
+        },
+        userSettings: {
+          ...state.userSettings,
+          profile: {
+            ...state.userSettings.profile,
+            name: 'Demo User',
+            email: 'demo@example.com'
+          }
         }
       };
     case 'SWITCH_TO_AUTH':
@@ -471,6 +501,28 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...action.payload,
         authentication: state.authentication // Preserve current authentication state
       };
+    case 'SYNC_PROFILE_DATA':
+      // Only sync if user is authenticated and there's a mismatch
+      if (needsProfileSync(state.authentication, state.userSettings)) {
+        console.log('SYNC_PROFILE_DATA: Syncing profile data from auth:', {
+          authName: state.authentication.user!.name,
+          authEmail: state.authentication.user!.email,
+          currentProfile: state.userSettings.profile
+        });
+        return {
+          ...state,
+          userSettings: {
+            ...state.userSettings,
+            profile: {
+              ...state.userSettings.profile,
+              name: state.authentication.user!.name,
+              email: state.authentication.user!.email
+            }
+          }
+        };
+      }
+      console.log('SYNC_PROFILE_DATA: No sync needed');
+      return state;
     default:
       return state;
   }

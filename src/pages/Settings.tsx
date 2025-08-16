@@ -5,34 +5,59 @@ import { useApp } from '../context/useApp';
 import { User, Bell, Palette, Shield, LogOut, LogIn, Play, AlertTriangle, Save, Upload, Database } from 'lucide-react';
 import { AuthModal } from '../components/Auth/AuthModal';
 import { DataRecovery } from '../utils/storage';
+import { authenticateUser, registerUser } from '../utils/auth';
 
 export function Settings() {
   const { state, dispatch } = useApp();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authError, setAuthError] = useState<string | undefined>();
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
 
-  const handleLogin = (email: string) => {
-    // For demo purposes, create a mock user
-    const mockUser = {
-      id: `user-${Date.now()}`,
-      name: email.split('@')[0],
-      email: email,
-      createdAt: new Date()
-    };
-    dispatch({ type: 'LOGIN', payload: mockUser });
-    setIsAuthModalOpen(false);
+  // Profile sync effect - runs when Settings page loads (only once)
+  React.useEffect(() => {
+    if (state.authentication.isAuthenticated || state.authentication.isDemoMode) {
+      // Check if profile data needs syncing and dispatch sync action
+      const needsSync = 
+        state.authentication.user && 
+        (state.authentication.user.name !== state.userSettings.profile.name ||
+         state.authentication.user.email !== state.userSettings.profile.email);
+      
+      if (needsSync) {
+        console.log('Profile data mismatch detected in Settings, syncing...');
+        dispatch({ type: 'SYNC_PROFILE_DATA' });
+      }
+    }
+  }, [state.authentication, state.userSettings.profile.name, state.userSettings.profile.email, dispatch]);
+
+  const handleLogin = async (email: string, password: string) => {
+    setAuthError(undefined);
+    setIsAuthLoading(true);
+    
+    try {
+      const user = authenticateUser(email, password);
+      dispatch({ type: 'LOGIN', payload: user });
+      setIsAuthModalOpen(false);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Login failed. Please try again.');
+    } finally {
+      setIsAuthLoading(false);
+    }
   };
 
-  const handleRegister = (name: string, email: string) => {
-    // For demo purposes, create a mock user
-    const mockUser = {
-      id: `user-${Date.now()}`,
-      name: name,
-      email: email,
-      createdAt: new Date()
-    };
-    dispatch({ type: 'LOGIN', payload: mockUser });
-    setIsAuthModalOpen(false);
+  const handleRegister = async (name: string, email: string, password: string) => {
+    setAuthError(undefined);
+    setIsAuthLoading(true);
+    
+    try {
+      const user = registerUser(email, password, name);
+      dispatch({ type: 'LOGIN', payload: user });
+      setIsAuthModalOpen(false);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Registration failed. Please try again.');
+    } finally {
+      setIsAuthLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -87,11 +112,13 @@ export function Settings() {
 
   const openLoginModal = () => {
     setAuthMode('login');
+    setAuthError(undefined);
     setIsAuthModalOpen(true);
   };
 
   const openRegisterModal = () => {
     setAuthMode('register');
+    setAuthError(undefined);
     setIsAuthModalOpen(true);
   };
 
@@ -435,6 +462,8 @@ export function Settings() {
         onLogin={handleLogin}
         onRegister={handleRegister}
         defaultMode={authMode}
+        isLoading={isAuthLoading}
+        error={authError}
       />
     </>
   );
