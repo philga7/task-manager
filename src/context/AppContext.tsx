@@ -227,6 +227,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadInitialState();
   }, []);
 
+  // Profile sync effect - runs after initial load and when authentication changes
+  useEffect(() => {
+    if (isInitialized && (state.authentication.isAuthenticated || state.authentication.isDemoMode)) {
+      // Check if profile data needs syncing and dispatch sync action
+      const needsSync = 
+        state.authentication.user && 
+        (state.authentication.user.name !== state.userSettings.profile.name ||
+         state.authentication.user.email !== state.userSettings.profile.email);
+      
+      if (needsSync) {
+        console.log('Profile data mismatch detected, syncing...');
+        dispatch({ type: 'SYNC_PROFILE_DATA' });
+      }
+    }
+  }, [isInitialized, state.authentication, state.userSettings.profile.name, state.userSettings.profile.email, dispatch]);
+
   // Ref to store the debounce timeout
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 

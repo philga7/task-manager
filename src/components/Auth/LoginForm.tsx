@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../UI/Button';
 import { Card } from '../UI/Card';
-import { X, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { X, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 interface LoginFormProps {
   onClose: () => void;
@@ -56,6 +56,14 @@ export function LoginForm({ onClose, onSwitchToRegister, onSubmit, isLoading = f
     }
   };
 
+  // Clear authentication error when form data changes
+  useEffect(() => {
+    if (error && (formData.email || formData.password)) {
+      // The parent component should handle clearing the error
+      // This is just a note for future enhancement
+    }
+  }, [formData.email, formData.password, error]);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <Card className="w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
@@ -73,8 +81,9 @@ export function LoginForm({ onClose, onSwitchToRegister, onSubmit, isLoading = f
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="p-3 bg-red-900/20 border border-red-700 rounded-lg text-red-300 text-sm">
-              {error}
+            <div className="p-3 bg-red-900/20 border border-red-700 rounded-lg text-red-300 text-sm flex items-start space-x-2" role="alert" aria-live="polite">
+              <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
