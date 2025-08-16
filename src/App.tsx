@@ -5,6 +5,7 @@ import { AppProvider } from './context/AppContext';
 import { ErrorBoundary } from './components/UI/ErrorBoundary';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Header } from './components/Layout/Header';
+import { ProtectedRoute } from './components/Auth/ProtectedRoute';
 import { Dashboard } from './pages/Dashboard';
 import { Tasks } from './pages/Tasks';
 import { Projects } from './pages/Projects';
@@ -25,11 +26,31 @@ function App() {
               <Header onMenuClick={() => setIsSidebarOpen(true)} />
               <main className="flex-1 overflow-auto">
                 <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/tasks" element={<Tasks />} />
-                  <Route path="/projects" element={<Projects />} />
-                  <Route path="/goals" element={<Goals />} />
-                  <Route path="/analytics" element={<Analytics />} />
+                  <Route path="/" element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/tasks" element={
+                    <ProtectedRoute>
+                      <Tasks />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/projects" element={
+                    <ProtectedRoute>
+                      <Projects />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/goals" element={
+                    <ProtectedRoute>
+                      <Goals />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/analytics" element={
+                    <ProtectedRoute>
+                      <Analytics />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/settings" element={<Settings />} />
                 </Routes>
               </main>

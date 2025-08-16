@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Bell, User, Menu, LogOut, LogIn, Play, Shield } from 'lucide-react';
+import { Search, Bell, User, Menu, LogOut, LogIn, Play, Shield, Lock } from 'lucide-react';
 import { useApp } from '../../context/useApp';
 import { AuthModal } from '../Auth/AuthModal';
 import { Button } from '../UI/Button';
@@ -15,6 +15,8 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authError, setAuthError] = useState<string | undefined>();
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  const { isAuthenticated, isDemoMode } = state.authentication;
 
   const handleLogin = async (email: string, password: string) => {
     setAuthError(undefined);
@@ -71,24 +73,35 @@ export function Header({ onMenuClick }: HeaderProps) {
             <Menu className="h-5 w-5" />
           </button>
           
-          <div className="flex items-center flex-1 max-w-lg">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-500" />
-              <input
-                type="text"
-                placeholder="Search tasks, projects, or goals..."
-                value={state.searchQuery}
-                onChange={(e) => dispatch({ type: 'SET_SEARCH_QUERY', payload: e.target.value })}
-                className="w-full pl-10 pr-4 py-2 bg-stone-800 border border-stone-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-250 text-sm md:text-base text-stone-200 placeholder-stone-500"
-                style={{ '--tw-ring-color': '#D97757' } as React.CSSProperties}
-              />
+          {/* Search Bar - Only show for authenticated or demo users */}
+          {(isAuthenticated || isDemoMode) && (
+            <div className="flex items-center flex-1 max-w-lg">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-500" />
+                <input
+                  type="text"
+                  placeholder="Search tasks, projects, or goals..."
+                  value={state.searchQuery}
+                  onChange={(e) => dispatch({ type: 'SET_SEARCH_QUERY', payload: e.target.value })}
+                  className="w-full pl-10 pr-4 py-2 bg-stone-800 border border-stone-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-250 text-sm md:text-base text-stone-200 placeholder-stone-500"
+                  style={{ '--tw-ring-color': '#D97757' } as React.CSSProperties}
+                />
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Authentication Prompt for Unauthenticated Users */}
+          {!isAuthenticated && !isDemoMode && (
+            <div className="flex items-center space-x-2 px-3 py-1.5 bg-stone-800/50 border border-stone-700 rounded-lg">
+              <Lock className="h-4 w-4 text-stone-400" />
+              <span className="text-sm text-stone-400">Login to access all features</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center space-x-3">
           {/* Demo Mode Indicator */}
-          {state.authentication.isDemoMode && (
+          {isDemoMode && (
             <div className="flex items-center space-x-2 px-3 py-1 bg-amber-500/20 border border-amber-500/30 rounded-lg">
               <Play className="h-4 w-4 text-amber-400" />
               <span className="text-xs font-medium text-amber-300">Demo Mode</span>
@@ -96,7 +109,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           )}
 
           {/* Authentication Status */}
-          {state.authentication.isAuthenticated && !state.authentication.isDemoMode && (
+          {isAuthenticated && !isDemoMode && (
             <div className="flex items-center space-x-2 px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-lg">
               <Shield className="h-4 w-4 text-green-400" />
               <span className="text-xs font-medium text-green-300">Authenticated</span>
@@ -105,7 +118,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
           {/* User Profile Section */}
           <div className="flex items-center space-x-2">
-            {state.authentication.isAuthenticated ? (
+            {isAuthenticated ? (
               <div className="flex items-center space-x-3">
                 {/* User Avatar/Name */}
                 <div className="flex items-center space-x-2 px-3 py-1.5 bg-stone-800 border border-stone-700 rounded-lg">
@@ -152,10 +165,12 @@ export function Header({ onMenuClick }: HeaderProps) {
             )}
           </div>
 
-          {/* Notifications */}
-          <button className="p-2 text-stone-400 hover:text-stone-200 hover:bg-stone-800 rounded-lg transition-colors duration-250">
-            <Bell className="h-5 w-5" />
-          </button>
+          {/* Notifications - Only show for authenticated or demo users */}
+          {(isAuthenticated || isDemoMode) && (
+            <button className="p-2 text-stone-400 hover:text-stone-200 hover:bg-stone-800 rounded-lg transition-colors duration-250">
+              <Bell className="h-5 w-5" />
+            </button>
+          )}
         </div>
       </header>
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card } from '../components/UI/Card';
 import { Button } from '../components/UI/Button';
 import { useApp } from '../context/useApp';
-import { User, Bell, Palette, Shield, LogOut, LogIn, Play, AlertTriangle, Save, Upload, Database } from 'lucide-react';
+import { User, Bell, Palette, Shield, LogOut, LogIn, Play, AlertTriangle, Save, Upload, Database, Settings as SettingsIcon, Lock } from 'lucide-react';
 import { AuthModal } from '../components/Auth/AuthModal';
 import { DataRecovery } from '../utils/storage';
 import { authenticateUser, registerUser } from '../utils/auth';
@@ -13,6 +13,8 @@ export function Settings() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authError, setAuthError] = useState<string | undefined>();
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  const { isAuthenticated, isDemoMode } = state.authentication;
 
   // Profile sync effect - runs when Settings page loads (only once)
   React.useEffect(() => {
@@ -59,6 +61,78 @@ export function Settings() {
       setIsAuthLoading(false);
     }
   };
+
+  // Show welcoming authentication prompt for unauthenticated users
+  if (!isAuthenticated && !isDemoMode) {
+    return (
+      <div className="p-4 md:p-6">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+          <div className="w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center">
+            <SettingsIcon className="w-8 h-8 text-stone-400" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-semibold text-stone-100">Welcome to Task Manager</h1>
+            <p className="text-stone-400 max-w-md">
+              Create an account to unlock all features and save your progress, or try demo mode to explore the app.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => {
+                setAuthMode('login');
+                setAuthError(undefined);
+                setIsAuthModalOpen(true);
+              }}
+              className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Login</span>
+            </button>
+            <button
+              onClick={() => {
+                setAuthMode('register');
+                setAuthError(undefined);
+                setIsAuthModalOpen(true);
+              }}
+              className="px-6 py-3 border border-stone-600 hover:border-stone-500 text-stone-300 hover:text-stone-200 rounded-lg font-medium transition-colors"
+            >
+              Create Account
+            </button>
+            <button
+              onClick={() => {
+                dispatch({ type: 'SWITCH_TO_DEMO' });
+              }}
+              className="px-6 py-3 border border-stone-600 hover:border-stone-500 text-stone-300 hover:text-stone-200 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+            >
+              <Play className="w-4 h-4" />
+              <span>Try Demo Mode</span>
+            </button>
+          </div>
+          <div className="mt-8 p-4 bg-stone-800/50 border border-stone-700 rounded-lg max-w-md">
+            <h3 className="text-sm font-medium text-stone-200 mb-2">What you'll get with an account:</h3>
+            <ul className="text-xs text-stone-400 space-y-1 text-left">
+              <li>• Save all your tasks, projects, and goals</li>
+              <li>• Access your data across devices</li>
+              <li>• Customize notifications and appearance</li>
+              <li>• Export and backup your data</li>
+              <li>• Track your productivity over time</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Auth Modal */}
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onLogin={handleLogin}
+          onRegister={handleRegister}
+          defaultMode={authMode}
+          isLoading={isAuthLoading}
+          error={authError}
+        />
+      </div>
+    );
+  }
 
   const handleLogout = () => {
     dispatch({ type: 'LOGOUT' });
@@ -222,92 +296,96 @@ export function Settings() {
             </div>
           </Card>
 
-          {/* Profile Settings */}
-          <Card>
-            <div className="flex items-center space-x-3 mb-4">
-              <User className="w-5 h-5 text-stone-600" />
-              <h3 className="text-base md:text-lg font-medium text-stone-100">Profile</h3>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs md:text-sm font-medium text-stone-300 mb-1">Full Name</label>
-                <input
-                  type="text"
-                  value={state.userSettings.profile.name}
-                  onChange={(e) => dispatch({
-                    type: 'UPDATE_USER_PROFILE',
-                    payload: { ...state.userSettings.profile, name: e.target.value }
-                  })}
-                  className="w-full px-3 py-2 border border-stone-700 bg-stone-800 text-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base"
-                  style={{ '--tw-ring-color': '#D97757' } as React.CSSProperties}
-                />
+          {/* Profile Settings - Only show for authenticated users */}
+          {state.authentication.isAuthenticated && !state.authentication.isDemoMode && (
+            <Card>
+              <div className="flex items-center space-x-3 mb-4">
+                <User className="w-5 h-5 text-stone-600" />
+                <h3 className="text-base md:text-lg font-medium text-stone-100">Profile</h3>
               </div>
-              <div>
-                <label className="block text-xs md:text-sm font-medium text-stone-300 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={state.userSettings.profile.email}
-                  onChange={(e) => dispatch({
-                    type: 'UPDATE_USER_PROFILE',
-                    payload: { ...state.userSettings.profile, email: e.target.value }
-                  })}
-                  className="w-full px-3 py-2 border border-stone-700 bg-stone-800 text-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base"
-                  style={{ '--tw-ring-color': '#D97757' } as React.CSSProperties}
-                />
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs md:text-sm font-medium text-stone-300 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    value={state.userSettings.profile.name}
+                    onChange={(e) => dispatch({
+                      type: 'UPDATE_USER_PROFILE',
+                      payload: { ...state.userSettings.profile, name: e.target.value }
+                    })}
+                    className="w-full px-3 py-2 border border-stone-700 bg-stone-800 text-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base"
+                    style={{ '--tw-ring-color': '#D97757' } as React.CSSProperties}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs md:text-sm font-medium text-stone-300 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={state.userSettings.profile.email}
+                    onChange={(e) => dispatch({
+                      type: 'UPDATE_USER_PROFILE',
+                      payload: { ...state.userSettings.profile, email: e.target.value }
+                    })}
+                    className="w-full px-3 py-2 border border-stone-700 bg-stone-800 text-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base"
+                    style={{ '--tw-ring-color': '#D97757' } as React.CSSProperties}
+                  />
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          )}
 
-          {/* Notifications */}
-          <Card>
-            <div className="flex items-center space-x-3 mb-4">
-              <Bell className="w-5 h-5 text-stone-600" />
-              <h3 className="text-base md:text-lg font-medium text-stone-100">Notifications</h3>
-            </div>
-            <div className="space-y-3">
-              <label className="flex items-center space-x-3">
-                <input 
-                  type="checkbox" 
-                  checked={state.userSettings.notifications.emailTasks}
-                  onChange={(e) => dispatch({
-                    type: 'UPDATE_NOTIFICATION_SETTINGS',
-                    payload: { ...state.userSettings.notifications, emailTasks: e.target.checked }
-                  })}
-                  className="rounded border-stone-600 bg-stone-800 focus:ring-2"
-                  style={{ accentColor: '#D97757', '--tw-ring-color': '#D97757' } as React.CSSProperties}
-                />
-                <span className="text-xs md:text-sm text-stone-300">Email notifications for due tasks</span>
-              </label>
-              <label className="flex items-center space-x-3">
-                <input 
-                  type="checkbox" 
-                  checked={state.userSettings.notifications.dailySummary}
-                  onChange={(e) => dispatch({
-                    type: 'UPDATE_NOTIFICATION_SETTINGS',
-                    payload: { ...state.userSettings.notifications, dailySummary: e.target.checked }
-                  })}
-                  className="rounded border-stone-600 bg-stone-800 focus:ring-2"
-                  style={{ accentColor: '#D97757', '--tw-ring-color': '#D97757' } as React.CSSProperties}
-                />
-                <span className="text-xs md:text-sm text-stone-300">Daily productivity summary</span>
-              </label>
-              <label className="flex items-center space-x-3">
-                <input 
-                  type="checkbox" 
-                  checked={state.userSettings.notifications.weeklyReports}
-                  onChange={(e) => dispatch({
-                    type: 'UPDATE_NOTIFICATION_SETTINGS',
-                    payload: { ...state.userSettings.notifications, weeklyReports: e.target.checked }
-                  })}
-                  className="rounded border-stone-600 bg-stone-800 focus:ring-2"
-                  style={{ accentColor: '#D97757', '--tw-ring-color': '#D97757' } as React.CSSProperties}
-                />
-                <span className="text-xs md:text-sm text-stone-300">Weekly progress reports</span>
-              </label>
-            </div>
-          </Card>
+          {/* Notifications - Only show for authenticated users */}
+          {state.authentication.isAuthenticated && !state.authentication.isDemoMode && (
+            <Card>
+              <div className="flex items-center space-x-3 mb-4">
+                <Bell className="w-5 h-5 text-stone-600" />
+                <h3 className="text-base md:text-lg font-medium text-stone-100">Notifications</h3>
+              </div>
+              <div className="space-y-3">
+                <label className="flex items-center space-x-3">
+                  <input 
+                    type="checkbox" 
+                    checked={state.userSettings.notifications.emailTasks}
+                    onChange={(e) => dispatch({
+                      type: 'UPDATE_NOTIFICATION_SETTINGS',
+                      payload: { ...state.userSettings.notifications, emailTasks: e.target.checked }
+                    })}
+                    className="rounded border-stone-600 bg-stone-800 focus:ring-2"
+                    style={{ accentColor: '#D97757', '--tw-ring-color': '#D97757' } as React.CSSProperties}
+                  />
+                  <span className="text-xs md:text-sm text-stone-300">Email notifications for due tasks</span>
+                </label>
+                <label className="flex items-center space-x-3">
+                  <input 
+                    type="checkbox" 
+                    checked={state.userSettings.notifications.dailySummary}
+                    onChange={(e) => dispatch({
+                      type: 'UPDATE_NOTIFICATION_SETTINGS',
+                      payload: { ...state.userSettings.notifications, dailySummary: e.target.checked }
+                    })}
+                    className="rounded border-stone-600 bg-stone-800 focus:ring-2"
+                    style={{ accentColor: '#D97757', '--tw-ring-color': '#D97757' } as React.CSSProperties}
+                  />
+                  <span className="text-xs md:text-sm text-stone-300">Daily productivity summary</span>
+                </label>
+                <label className="flex items-center space-x-3">
+                  <input 
+                    type="checkbox" 
+                    checked={state.userSettings.notifications.weeklyReports}
+                    onChange={(e) => dispatch({
+                      type: 'UPDATE_NOTIFICATION_SETTINGS',
+                      payload: { ...state.userSettings.notifications, weeklyReports: e.target.checked }
+                    })}
+                    className="rounded border-stone-600 bg-stone-800 focus:ring-2"
+                    style={{ accentColor: '#D97757', '--tw-ring-color': '#D97757' } as React.CSSProperties}
+                  />
+                  <span className="text-xs md:text-sm text-stone-300">Weekly progress reports</span>
+                </label>
+              </div>
+            </Card>
+          )}
 
-          {/* Appearance */}
+          {/* Appearance - Show for all authenticated users (including demo) */}
           <Card>
             <div className="flex items-center space-x-3 mb-4">
               <Palette className="w-5 h-5 text-stone-600" />
@@ -373,85 +451,112 @@ export function Settings() {
             </div>
           </Card>
 
-          {/* Data & Privacy */}
-          <Card>
-            <div className="flex items-center space-x-3 mb-4">
-              <Database className="w-5 h-5 text-stone-600" />
-              <h3 className="text-base md:text-lg font-medium text-stone-100">Data & Privacy</h3>
-            </div>
-            <div className="space-y-4">
-              {/* Storage Statistics */}
-              <div>
-                <h4 className="text-sm font-medium text-stone-200 mb-2">Storage Usage</h4>
-                <div className="text-xs text-stone-400 space-y-1">
-                  <div>localStorage: {(storageStats.localStorage / 1024).toFixed(2)} KB</div>
-                  <div>sessionStorage: {(storageStats.sessionStorage / 1024).toFixed(2)} KB</div>
+          {/* Data & Privacy - Only show for authenticated users */}
+          {state.authentication.isAuthenticated && !state.authentication.isDemoMode && (
+            <Card>
+              <div className="flex items-center space-x-3 mb-4">
+                <Database className="w-5 h-5 text-stone-600" />
+                <h3 className="text-base md:text-lg font-medium text-stone-100">Data & Privacy</h3>
+              </div>
+              <div className="space-y-4">
+                {/* Storage Statistics */}
+                <div>
+                  <h4 className="text-sm font-medium text-stone-200 mb-2">Storage Usage</h4>
+                  <div className="text-xs text-stone-400 space-y-1">
+                    <div>localStorage: {(storageStats.localStorage / 1024).toFixed(2)} KB</div>
+                    <div>sessionStorage: {(storageStats.sessionStorage / 1024).toFixed(2)} KB</div>
+                  </div>
                 </div>
-              </div>
-              
-              {/* Data Export */}
-              <div>
-                <h4 className="text-sm font-medium text-stone-200 mb-2">Data Export</h4>
-                <p className="text-xs text-stone-400 mb-3">
-                  Export your data for backup or transfer to another device. This includes all your tasks, projects, and goals.
-                </p>
-                <Button variant="secondary" size="sm" onClick={handleExportData}>
-                  <Save className="w-4 h-4 mr-2" />
-                  Export Data
-                </Button>
-              </div>
-              
-              {/* Data Import */}
-              <div>
-                <h4 className="text-sm font-medium text-stone-200 mb-2">Data Import</h4>
-                <p className="text-xs text-stone-400 mb-3">
-                  Import previously exported data. This will replace your current data.
-                </p>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={handleImportData}
-                    className="hidden"
-                    id="import-file"
-                  />
-                  <label htmlFor="import-file">
-                    <Button variant="secondary" size="sm" asChild>
-                      <span>
-                        <Upload className="w-4 h-4 mr-2" />
-                        Import Data
-                      </span>
-                    </Button>
-                  </label>
+                
+                {/* Data Export */}
+                <div>
+                  <h4 className="text-sm font-medium text-stone-200 mb-2">Data Export</h4>
+                  <p className="text-xs text-stone-400 mb-3">
+                    Export your data for backup or transfer to another device. This includes all your tasks, projects, and goals.
+                  </p>
+                  <Button variant="secondary" size="sm" onClick={handleExportData}>
+                    <Save className="w-4 h-4 mr-2" />
+                    Export Data
+                  </Button>
                 </div>
-              </div>
-              
-              {/* Clear Data */}
-              <div>
-                <h4 className="text-sm font-medium text-stone-200 mb-2">Clear All Data</h4>
-                <p className="text-xs text-stone-400 mb-3">
-                  Permanently delete all your data. This action cannot be undone.
-                </p>
-                <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
-                  Clear All Data
-                </Button>
-              </div>
-              
-              {/* Storage Protection Info */}
-              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <div className="flex items-start space-x-2">
-                  <Database className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-blue-300 mb-1">Storage Protection</p>
-                    <p className="text-xs text-blue-200">
-                      Your data is stored in multiple locations (localStorage, sessionStorage, IndexedDB, and cookies) 
-                      to prevent accidental loss. Regular backups are recommended.
-                    </p>
+                
+                {/* Data Import */}
+                <div>
+                  <h4 className="text-sm font-medium text-stone-200 mb-2">Data Import</h4>
+                  <p className="text-xs text-stone-400 mb-3">
+                    Import previously exported data. This will replace your current data.
+                  </p>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportData}
+                      className="hidden"
+                      id="import-file"
+                    />
+                    <label htmlFor="import-file">
+                      <Button variant="secondary" size="sm" asChild>
+                        <span>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Import Data
+                        </span>
+                      </Button>
+                    </label>
+                  </div>
+                </div>
+                
+                {/* Clear Data */}
+                <div>
+                  <h4 className="text-sm font-medium text-stone-200 mb-2">Clear All Data</h4>
+                  <p className="text-xs text-stone-400 mb-3">
+                    Permanently delete all your data. This action cannot be undone.
+                  </p>
+                  <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
+                    Clear All Data
+                  </Button>
+                </div>
+                
+                {/* Storage Protection Info */}
+                <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <div className="flex items-start space-x-2">
+                    <Database className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-300 mb-1">Storage Protection</p>
+                      <p className="text-xs text-blue-200">
+                        Your data is stored in multiple locations (localStorage, sessionStorage, IndexedDB, and cookies) 
+                        to prevent accidental loss. Regular backups are recommended.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          )}
+
+          {/* Demo Mode Data Warning - Show for demo users */}
+          {state.authentication.isDemoMode && (
+            <Card>
+              <div className="flex items-center space-x-3 mb-4">
+                <Database className="w-5 h-5 text-stone-600" />
+                <h3 className="text-base md:text-lg font-medium text-stone-100">Data & Privacy</h3>
+              </div>
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <Lock className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-300 mb-1">Demo Mode Limitations</p>
+                    <p className="text-xs text-amber-200 mb-3">
+                      In demo mode, data export/import and storage management features are not available. 
+                      Create an account to access these features and save your data permanently.
+                    </p>
+                    <Button variant="secondary" size="sm" onClick={openRegisterModal}>
+                      Create Account
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
 

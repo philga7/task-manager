@@ -1,6 +1,7 @@
 import { Task, Project, Goal, Milestone, UserSettings, User, AuthenticationState } from '../types';
 import { calculateProjectProgress, calculateGoalProgress } from '../utils/progress';
 import { validateTaskData, validateGoalData, validateMilestoneTaskAssociation, validateMilestoneTaskConsistency } from '../utils/validation';
+import { createSession, clearCurrentSession } from '../utils/auth';
 
 interface AppState {
   tasks: Task[];
@@ -438,11 +439,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         }
       };
     case 'LOGIN':
+      // Create session for the logged-in user
+      createSession(action.payload, false);
+      
       return {
         ...state,
         authentication: {
           ...state.authentication,
           isAuthenticated: true,
+          isDemoMode: false,
           user: action.payload
         },
         userSettings: {
@@ -455,27 +460,35 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         }
       };
     case 'LOGOUT':
+      // Clear session data
+      clearCurrentSession();
+      
       return {
         ...state,
         authentication: {
           ...state.authentication,
           isAuthenticated: false,
+          isDemoMode: false,
           user: null
         }
       };
-    case 'SWITCH_TO_DEMO':
+    case 'SWITCH_TO_DEMO': {
+      // Create demo session
+      const demoUser = {
+        id: 'demo-user-id',
+        name: 'Demo User',
+        email: 'demo@example.com',
+        createdAt: new Date()
+      };
+      createSession(demoUser, true);
+      
       return {
         ...state,
         authentication: {
           ...state.authentication,
           isAuthenticated: true,
           isDemoMode: true,
-          user: {
-            id: 'demo-user-id',
-            name: 'Demo User',
-            email: 'demo@example.com',
-            createdAt: new Date()
-          }
+          user: demoUser
         },
         userSettings: {
           ...state.userSettings,
@@ -486,7 +499,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           }
         }
       };
+    }
     case 'SWITCH_TO_AUTH':
+      // Clear demo session
+      clearCurrentSession();
+      
       return {
         ...state,
         authentication: {

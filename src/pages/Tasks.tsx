@@ -6,13 +6,52 @@ import { TaskForm } from '../components/Tasks/TaskForm';
 import { EmptyState } from '../components/UI/EmptyState';
 import { DemoModeIndicator } from '../components/UI/DemoModeIndicator';
 import { useApp } from '../context/useApp';
-import { Plus, Filter, SortDesc } from 'lucide-react';
+import { Plus, Filter, SortDesc, Lock, LogIn } from 'lucide-react';
 
 export function Tasks() {
   const { state, dispatch } = useApp();
+  const { isAuthenticated, isDemoMode } = state.authentication;
   const [showCompleted, setShowCompleted] = useState(false);
   const [sortBy, setSortBy] = useState<'dueDate' | 'priority' | 'created'>('dueDate');
   const [showTaskForm, setShowTaskForm] = useState(false);
+
+  // Show authentication prompt for unauthenticated users
+  if (!isAuthenticated && !isDemoMode) {
+    return (
+      <div className="p-4 md:p-6">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+          <div className="w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center">
+            <Lock className="w-8 h-8 text-stone-400" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-semibold text-stone-100">Authentication Required</h1>
+            <p className="text-stone-400 max-w-md">
+              Please log in or try demo mode to access your tasks and manage your productivity.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => window.location.href = '/settings'}
+              className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Go to Login</span>
+            </button>
+            <button
+              onClick={() => {
+                // This will be handled by the demo mode button in the header
+                const demoButton = document.querySelector('[data-demo-button]') as HTMLButtonElement;
+                if (demoButton) demoButton.click();
+              }}
+              className="px-6 py-3 border border-stone-600 hover:border-stone-500 text-stone-300 hover:text-stone-200 rounded-lg font-medium transition-colors"
+            >
+              Try Demo Mode
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const filteredTasks = state.tasks.filter(task => {
     let matches = true;
@@ -130,41 +169,35 @@ export function Tasks() {
             </select>
           </div>
 
-          <div className="w-full sm:w-auto">
           <label className="flex items-center space-x-2">
             <input
               type="checkbox"
               checked={showCompleted}
               onChange={(e) => setShowCompleted(e.target.checked)}
               className="rounded border-stone-600 bg-stone-800 text-amber-600 focus:ring-amber-500"
-              style={{ accentColor: '#D97757' }}
             />
             <span className="text-xs sm:text-sm text-stone-300">Show completed</span>
           </label>
-          </div>
-          </div>
+        </div>
         </div>
       </Card>
 
-      {/* Tasks Grid */}
-      {sortedTasks.length > 0 ? (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-stone-300">Task List</h3>
-            <DemoModeIndicator variant="badge" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-            {sortedTasks.map(task => (
+      {/* Task List */}
+      <div>
+        <h3 className="text-sm font-medium text-stone-300">Task List</h3>
+        <div className="mt-4 space-y-3">
+          {sortedTasks.length > 0 ? (
+            sortedTasks.map(task => (
               <TaskCard key={task.id} task={task} />
-            ))}
-          </div>
+            ))
+          ) : (
+            <EmptyState 
+              type="tasks" 
+              onCreate={() => setShowTaskForm(true)}
+            />
+          )}
         </div>
-      ) : (
-        <EmptyState 
-          type="tasks" 
-          onCreate={() => setShowTaskForm(true)}
-        />
-      )}
+      </div>
 
       {showTaskForm && (
         <TaskForm onClose={() => setShowTaskForm(false)} />
