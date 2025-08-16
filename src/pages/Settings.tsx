@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Card } from '../components/UI/Card';
 import { Button } from '../components/UI/Button';
 import { useApp } from '../context/useApp';
-import { User, Bell, Palette, Shield, LogOut, LogIn, Play, AlertTriangle, Save, Upload, Database, Settings as SettingsIcon, Lock } from 'lucide-react';
+import { User, Bell, Palette, Shield, LogOut, LogIn, Play, AlertTriangle, Save, Upload, Database, Settings as SettingsIcon, Lock, TrendingUp, Clock, Target, Zap } from 'lucide-react';
 import { AuthModal } from '../components/Auth/AuthModal';
 import { DataRecovery } from '../utils/storage';
 import { authenticateUser, registerUser } from '../utils/auth';
+import { calculateRealTimeAnalytics, generateWeeklyProductivityData } from '../utils/progress';
 
 export function Settings() {
   const { state, dispatch } = useApp();
@@ -448,6 +449,100 @@ export function Settings() {
                   ></button>
                 </div>
               </div>
+            </div>
+          </Card>
+
+          {/* Productivity Analytics - Show for all authenticated users (including demo) */}
+          <Card>
+            <div className="flex items-center space-x-3 mb-4">
+              <TrendingUp className="w-5 h-5 text-stone-600" />
+              <h3 className="text-base md:text-lg font-medium text-stone-100">Weekly Productivity Analytics</h3>
+            </div>
+            <div className="space-y-4">
+              {/* Real-time analytics calculation */}
+              {(() => {
+                const realTimeAnalytics = calculateRealTimeAnalytics(state.tasks);
+                const weeklyData = generateWeeklyProductivityData(state.tasks);
+                
+                return (
+                  <>
+                    {/* Key Metrics */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                      <div className="flex items-center space-x-2 md:space-x-3 p-3 bg-stone-800/50 rounded-lg border border-stone-700">
+                        <div className="p-2 bg-green-100 rounded-xl">
+                          <Target className="w-4 h-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-stone-400">Tasks Completed</p>
+                          <p className="text-lg font-semibold text-stone-100">{realTimeAnalytics.tasksCompleted}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 md:space-x-3 p-3 bg-stone-800/50 rounded-lg border border-stone-700">
+                        <div className="p-2 bg-blue-100 rounded-xl">
+                          <TrendingUp className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-stone-400">Productivity Score</p>
+                          <p className="text-lg font-semibold text-stone-100">{realTimeAnalytics.productivity}%</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 md:space-x-3 p-3 bg-stone-800/50 rounded-lg border border-stone-700">
+                        <div className="p-2 bg-amber-100 rounded-xl">
+                          <Zap className="w-4 h-4 text-amber-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-stone-400">Current Streak</p>
+                          <p className="text-lg font-semibold text-stone-100">{realTimeAnalytics.streakDays} days</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 md:space-x-3 p-3 bg-stone-800/50 rounded-lg border border-stone-700">
+                        <div className="p-2 bg-purple-100 rounded-xl">
+                          <Clock className="w-4 h-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-stone-400">Avg. Completion</p>
+                          <p className="text-lg font-semibold text-stone-100">{realTimeAnalytics.averageCompletionTime}d</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Weekly Productivity Chart */}
+                    <div>
+                      <h4 className="text-sm font-medium text-stone-200 mb-3">Weekly Productivity Trend</h4>
+                      <div className="space-y-2">
+                        {weeklyData.data.map((value, index) => (
+                          <div key={index} className="flex items-center space-x-3">
+                            <span className="w-8 text-xs text-stone-600">{weeklyData.days[index]}</span>
+                            <div className="flex-1 bg-stone-700 rounded-full h-2">
+                              <div 
+                                className="bg-amber-600 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${value}%` }}
+                              />
+                            </div>
+                            <span className="w-8 text-xs text-stone-400 text-right">{value}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Data Source Info */}
+                    <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                      <div className="flex items-start space-x-2">
+                        <TrendingUp className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium text-blue-300 mb-1">Real-Time Data</p>
+                          <p className="text-xs text-blue-200">
+                            All productivity metrics are calculated from your actual task completion data and update automatically as you complete tasks.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </Card>
 

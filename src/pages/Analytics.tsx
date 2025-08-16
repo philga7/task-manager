@@ -5,11 +5,15 @@ import { EmptyState } from '../components/UI/EmptyState';
 import { DemoModeIndicator } from '../components/UI/DemoModeIndicator';
 import { useApp } from '../context/useApp';
 import { TrendingUp, Clock, Target, Zap, Lock, LogIn } from 'lucide-react';
+import { calculateRealTimeAnalytics, generateWeeklyProductivityData } from '../utils/progress';
 
 export function Analytics() {
   const { state } = useApp();
   const { isAuthenticated, isDemoMode } = state.authentication;
-  const { analytics } = state;
+  
+  // Calculate real-time analytics from actual task data
+  const realTimeAnalytics = calculateRealTimeAnalytics(state.tasks);
+  const weeklyData = generateWeeklyProductivityData(state.tasks);
 
   // Show authentication prompt for unauthenticated users
   if (!isAuthenticated && !isDemoMode) {
@@ -49,8 +53,7 @@ export function Analytics() {
     );
   }
 
-  const weeklyData = [65, 75, 80, 85, 78, 82, 88];
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
 
   // Check if there's any data to show
   const hasData = state.tasks.length > 0 || state.projects.length > 0 || state.goals.length > 0;
@@ -89,7 +92,7 @@ export function Analytics() {
             </div>
             <div>
               <p className="text-xs md:text-sm text-stone-400">Tasks Completed</p>
-              <p className="text-lg md:text-2xl font-semibold text-stone-100">{analytics.tasksCompleted}</p>
+              <p className="text-lg md:text-2xl font-semibold text-stone-100">{realTimeAnalytics.tasksCompleted}</p>
             </div>
           </div>
         </Card>
@@ -101,7 +104,7 @@ export function Analytics() {
             </div>
             <div>
               <p className="text-xs md:text-sm text-stone-400">Productivity Score</p>
-              <p className="text-lg md:text-2xl font-semibold text-stone-100">{analytics.productivity}%</p>
+              <p className="text-lg md:text-2xl font-semibold text-stone-100">{realTimeAnalytics.productivity}%</p>
             </div>
           </div>
         </Card>
@@ -113,7 +116,7 @@ export function Analytics() {
             </div>
             <div>
               <p className="text-xs md:text-sm text-stone-400">Current Streak</p>
-              <p className="text-lg md:text-2xl font-semibold text-stone-100">{analytics.streakDays} days</p>
+              <p className="text-lg md:text-2xl font-semibold text-stone-100">{realTimeAnalytics.streakDays} days</p>
             </div>
           </div>
         </Card>
@@ -125,7 +128,7 @@ export function Analytics() {
             </div>
             <div>
               <p className="text-xs md:text-sm text-stone-400">Avg. Completion</p>
-              <p className="text-lg md:text-2xl font-semibold text-stone-100">{analytics.averageCompletionTime}d</p>
+              <p className="text-lg md:text-2xl font-semibold text-stone-100">{realTimeAnalytics.averageCompletionTime}d</p>
             </div>
           </div>
         </Card>
@@ -139,9 +142,9 @@ export function Analytics() {
             <DemoModeIndicator variant="badge" />
           </div>
           <div className="space-y-3">
-            {weeklyData.map((value, index) => (
+            {weeklyData.data.map((value, index) => (
               <div key={index} className="flex items-center space-x-3">
-                <span className="w-8 text-xs text-stone-600">{days[index]}</span>
+                <span className="w-8 text-xs text-stone-600">{weeklyData.days[index]}</span>
                 <div className="flex-1 bg-stone-700 rounded-full h-2">
                   <div 
                     className="bg-amber-600 h-2 rounded-full transition-all duration-300"
@@ -162,7 +165,7 @@ export function Analytics() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs md:text-sm text-stone-400">Completed</span>
-              <span className="text-xs md:text-sm font-medium text-stone-100">{analytics.tasksCompleted}</span>
+              <span className="text-xs md:text-sm font-medium text-stone-100">{realTimeAnalytics.tasksCompleted}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs md:text-sm text-stone-400">In Progress</span>
