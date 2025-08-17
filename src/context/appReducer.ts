@@ -2,6 +2,7 @@ import { Task, Project, Goal, Milestone, UserSettings, User, AuthenticationState
 import { calculateProjectProgress, calculateGoalProgress } from '../utils/progress';
 import { validateTaskData, validateGoalData, validateMilestoneTaskAssociation, validateMilestoneTaskConsistency } from '../utils/validation';
 import { createSession, clearCurrentSession } from '../utils/auth';
+import { clearDemoStorageData } from '../utils/storage';
 
 interface AppState {
   tasks: Task[];
@@ -463,6 +464,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       // Clear session data
       clearCurrentSession();
       
+      // If user was in demo mode, also clear demo storage data
+      if (state.authentication.isDemoMode) {
+        clearDemoStorageData();
+      }
+      
       return {
         ...state,
         authentication: {
@@ -473,6 +479,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         }
       };
     case 'SWITCH_TO_DEMO': {
+      // Clear any existing demo data to ensure clean demo session
+      clearDemoStorageData();
+      
       // Create demo session
       const demoUser = {
         id: 'demo-user-id',
@@ -503,6 +512,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'SWITCH_TO_AUTH':
       // Clear demo session
       clearCurrentSession();
+      
+      // Clear all demo storage data to prevent data leakage
+      clearDemoStorageData();
       
       return {
         ...state,
