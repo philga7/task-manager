@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/useApp';
 import { LoadingSpinner } from '../UI/LoadingSpinner';
 
@@ -16,6 +16,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { state } = useApp();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, isDemoMode } = state.authentication;
 
   useEffect(() => {
@@ -23,7 +24,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (!isAuthenticated && !isDemoMode) {
       navigate('/settings', { replace: true });
     }
-  }, [isAuthenticated, isDemoMode, navigate]);
+    
+    // If authenticated and trying to access settings, redirect to dashboard
+    if ((isAuthenticated || isDemoMode) && location.pathname === '/settings') {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, isDemoMode, navigate, location.pathname]);
 
   // Show loading spinner while checking authentication
   if (!isAuthenticated && !isDemoMode) {

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Bell, User, Menu, LogOut, LogIn, Play, Shield, Lock } from 'lucide-react';
 import { useApp } from '../../context/useApp';
 import { AuthModal } from '../Auth/AuthModal';
@@ -11,6 +12,7 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { state, dispatch } = useApp();
+  const navigate = useNavigate();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authError, setAuthError] = useState<string | undefined>();
@@ -26,6 +28,8 @@ export function Header({ onMenuClick }: HeaderProps) {
       const user = await authenticateUser(email, password);
       dispatch({ type: 'LOGIN', payload: user });
       setIsAuthModalOpen(false);
+      // Redirect to Dashboard after successful login
+      navigate('/');
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Login failed. Please try again.');
     } finally {
@@ -41,6 +45,8 @@ export function Header({ onMenuClick }: HeaderProps) {
       const user = await registerUser(email, password, name);
       dispatch({ type: 'LOGIN', payload: user });
       setIsAuthModalOpen(false);
+      // Redirect to Dashboard after successful registration
+      navigate('/');
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Registration failed. Please try again.');
     } finally {
@@ -58,6 +64,8 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const handleSwitchToDemo = () => {
     dispatch({ type: 'SWITCH_TO_DEMO' });
+    // Redirect to Dashboard after entering demo mode
+    navigate('/');
   };
 
   const handleSwitchToAuth = () => {
