@@ -3,6 +3,7 @@ import { calculateProjectProgress, calculateGoalProgress } from '../utils/progre
 import { validateTaskData, validateGoalData, validateMilestoneTaskAssociation, validateMilestoneTaskConsistency } from '../utils/validation';
 import { createSession, clearCurrentSession } from '../utils/auth';
 import { clearDemoStorageData } from '../utils/storage';
+import { logValidation, logMilestone, logProfile } from '../utils/logger';
 
 interface AppState {
   tasks: Task[];
@@ -99,7 +100,7 @@ function updateMilestoneCompletion(goals: Goal[], tasks: Task[]): Goal[] {
         
         if (associatedTasks.length === 0) {
           // No associated tasks found, keep current completion status
-          console.log(`Milestone ${milestone.id} has taskIds but no tasks found, keeping current status`);
+          logMilestone.noTasks(milestone.id);
           return milestone;
         }
         
@@ -116,7 +117,7 @@ function updateMilestoneCompletion(goals: Goal[], tasks: Task[]): Goal[] {
         
         // Log milestone completion changes for debugging
         if (wasCompleted !== allTasksCompleted) {
-          console.log(`Milestone ${milestone.id} (${milestone.title}) ${allTasksCompleted ? 'completed' : 'uncompleted'} based on task status`);
+          logMilestone.completion(milestone.id, milestone.title, allTasksCompleted);
         }
         
         return updatedMilestone;
@@ -137,7 +138,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       // Validate task data before adding
       const taskValidation = validateTaskData(action.payload);
       if (!taskValidation.isValid) {
-        console.error('Task validation failed:', taskValidation.errors);
+        logValidation.error('Task', taskValidation.errors);
         // Still add the task but log the validation errors
         // In a real app, you might want to throw an error or handle this differently
       }
@@ -157,7 +158,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       // Validate task data before updating
       const taskValidation = validateTaskData(action.payload);
       if (!taskValidation.isValid) {
-        console.error('Task validation failed:', taskValidation.errors);
+        logValidation.error('Task', taskValidation.errors);
         // Still update the task but log the validation errors
       }
       
@@ -222,7 +223,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       // Validate goal data before adding
       const goalValidation = validateGoalData(action.payload, state.tasks, state.projects);
       if (!goalValidation.isValid) {
-        console.error('Goal validation failed:', goalValidation.errors);
+        logValidation.error('Goal', goalValidation.errors);
         // Still add the goal but log the validation errors
       }
       return { ...state, goals: [...state.goals, action.payload] };
@@ -231,7 +232,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       // Validate goal data before updating
       const goalValidation = validateGoalData(action.payload, state.tasks, state.projects);
       if (!goalValidation.isValid) {
-        console.error('Goal validation failed:', goalValidation.errors);
+        logValidation.error('Goal', goalValidation.errors);
         // Still update the goal but log the validation errors
       }
       return {
@@ -255,7 +256,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       
       // Prevent manual completion of task-linked milestones
       if (milestone && milestone.taskIds && milestone.taskIds.length > 0 && updates.completed !== undefined) {
-        console.log(`Preventing manual completion update for task-linked milestone ${milestoneId}`);
+        logMilestone.manualUpdate(milestoneId);
         // Remove completion-related updates for task-linked milestones
         const otherUpdates = { ...updates };
         delete otherUpdates.completed;
@@ -307,12 +308,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         if (updatedMilestone) {
           const consistencyValidation = validateMilestoneTaskConsistency(updatedMilestone, state.tasks);
           if (!consistencyValidation.isValid) {
-            console.error('Milestone-task consistency validation failed:', consistencyValidation.errors);
+            logValidation.error('Milestone-task consistency', consistencyValidation.errors);
             // Log validation errors but still allow the update
             // In a production app, you might want to prevent the update or show user feedback
           }
           if (consistencyValidation.warnings.length > 0) {
-            console.warn('Milestone-task consistency warnings:', consistencyValidation.warnings);
+            logValidation.warn('Milestone-task consistency', consistencyValidation.warnings);
           }
         }
       }
@@ -334,7 +335,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       if (goal && milestone && task) {
         const validation = validateMilestoneTaskAssociation(milestone, task, state.tasks);
         if (!validation.isValid) {
-          console.error('Milestone-task association validation failed:', validation.errors);
+          logValidation.error('Milestone-task association', validation.errors);
           // Still proceed but log the validation errors
         }
       }
@@ -364,10 +365,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         if (updatedMilestone) {
           const consistencyValidation = validateMilestoneTaskConsistency(updatedMilestone, state.tasks);
           if (!consistencyValidation.isValid) {
-            console.error('Milestone-task consistency validation failed after linking:', consistencyValidation.errors);
+            logValidation.error('Milestone-task consistency after linking', consistencyValidation.errors);
           }
           if (consistencyValidation.warnings.length > 0) {
-            console.warn('Milestone-task consistency warnings after linking:', consistencyValidation.warnings);
+            logValidation.warn('Milestone-task consistency after linking', consistencyValidation.warnings);
           }
         }
       }
@@ -405,7 +406,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_SELECTED_PRIORITY':
       return { ...state, selectedPriority: action.payload };
     case 'UPDATE_USER_PROFILE':
-      console.log('UPDATE_USER_PROFILE called with:', action.payload);
+      logProfile.update(action.payload);
       return {
         ...state,
         userSettings: {
@@ -516,6 +517,29 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       // Clear all demo storage data to prevent data leakage
       clearDemoStorageData();
       
+      // Force clear any remaining session data
+      try {
+        if (typeof window !== 'undefined') {
+          // Clear session storage completely for demo-related data
+          const sessionKeys = Object.keys(sessionStorage);
+          sessionKeys.forEach(key => {
+            if (key.includes('task_manager_session') || key.includes('demo')) {
+              sessionStorage.removeItem(key);
+            }
+          });
+          
+          // Clear localStorage demo data
+          const localKeys = Object.keys(localStorage);
+          localKeys.forEach(key => {
+            if (key.includes('demo') || key.includes('task-manager-demo')) {
+              localStorage.removeItem(key);
+            }
+          });
+        }
+      } catch {
+        // Ignore errors during cleanup
+      }
+      
       return {
         ...state,
         authentication: {
@@ -533,11 +557,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'SYNC_PROFILE_DATA':
       // Only sync if user is authenticated and there's a mismatch
       if (needsProfileSync(state.authentication, state.userSettings)) {
-        console.log('SYNC_PROFILE_DATA: Syncing profile data from auth:', {
-          authName: state.authentication.user!.name,
-          authEmail: state.authentication.user!.email,
-          currentProfile: state.userSettings.profile
-        });
+        logProfile.sync(state.authentication.user!.name, state.authentication.user!.email, state.userSettings.profile);
         return {
           ...state,
           userSettings: {
@@ -550,7 +570,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           }
         };
       }
-      console.log('SYNC_PROFILE_DATA: No sync needed');
+      logProfile.noSync();
       return state;
     default:
       return state;

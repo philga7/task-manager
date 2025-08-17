@@ -1,5 +1,6 @@
 import { User } from '../types';
 import { detectMobileBrowser, hasCompatibilityIssues } from './mobileDetection';
+import { logger, logAuth } from './logger';
 
 // User storage interface for localStorage
 interface StoredUser {
@@ -7,6 +8,8 @@ interface StoredUser {
   email: string;
   name: string;
   passwordHash: string;
+  passwordVersion: number; // Track password hash version for migration
+  salt?: string; // Salt for secure password hashing (optional for legacy users)
   createdAt: string; // ISO string for localStorage compatibility
 }
 
@@ -25,32 +28,38 @@ const USERS_STORAGE_KEY = 'task_manager_users';
 const SESSION_STORAGE_KEY = 'task_manager_session';
 const SESSION_TIMEOUT_HOURS = 24; // Session expires after 24 hours of inactivity
 
+// Password hash versions
+const PASSWORD_VERSIONS = {
+  LEGACY: 1, // Old btoa() implementation
+  SECURE: 2  // New Web Crypto API implementation
+};
+
 /**
- * Mobile-compatible password hashing function with fallback for btoa/atob
- * Note: This is for demo purposes only - in production, use proper cryptographic hashing
+ * Generate a cryptographically secure random salt
  */
-function hashPassword(password: string): string {
-  const salt = 'task_manager_salt_2024';
-  const saltedPassword = password + salt;
-  
-  try {
-    // Try btoa first (standard browsers)
-    if (typeof btoa !== 'undefined') {
-      return btoa(saltedPassword);
-    } else {
-      // Fallback for browsers without btoa (some mobile browsers)
-      return encodeURIComponent(saltedPassword);
-    }
-  } catch (error) {
-    console.warn('btoa not available, using fallback encoding:', error);
-    return encodeURIComponent(saltedPassword);
-  }
+async function generateSalt(): Promise<string> {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 /**
- * Mobile-compatible password verification function
+ * Secure password hashing using Web Crypto API (SHA-256)
  */
-function verifyPassword(password: string, hash: string): boolean {
+async function hashPasswordSecure(password: string, salt: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + salt);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+
+
+/**
+ * Legacy password verification function (for migration purposes)
+ */
+function verifyPasswordLegacy(password: string, hash: string): boolean {
   const salt = 'task_manager_salt_2024';
   const saltedPassword = password + salt;
   
@@ -65,11 +74,45 @@ function verifyPassword(password: string, hash: string): boolean {
       return hash === expectedHash;
     }
   } catch (error) {
-    console.warn('atob not available, using fallback verification:', error);
+    logger.warn('atob not available, using fallback verification:', error);
     const expectedHash = encodeURIComponent(saltedPassword);
     return hash === expectedHash;
   }
 }
+
+/**
+ * Secure password verification using Web Crypto API
+ */
+async function verifyPasswordSecure(password: string, hash: string, salt: string): Promise<boolean> {
+  const expectedHash = await hashPasswordSecure(password, salt);
+  return hash === expectedHash;
+}
+
+/**
+ * Main password hashing function - uses secure method
+ */
+export async function hashPassword(password: string): Promise<{ hash: string; salt: string; version: number }> {
+  const salt = await generateSalt();
+  const hash = await hashPasswordSecure(password, salt);
+  return { hash, salt, version: PASSWORD_VERSIONS.SECURE };
+}
+
+/**
+ * Main password verification function - handles both legacy and secure methods
+ */
+export async function verifyPassword(password: string, hash: string, salt: string, version: number): Promise<boolean> {
+  if (version === PASSWORD_VERSIONS.LEGACY) {
+    // Legacy verification (for migration)
+    return verifyPasswordLegacy(password, hash);
+  } else if (version === PASSWORD_VERSIONS.SECURE) {
+    // Secure verification
+    return await verifyPasswordSecure(password, hash, salt);
+  } else {
+    throw new Error('Unknown password hash version');
+  }
+}
+
+
 
 /**
  * Get all registered users from storage with mobile browser compatibility
@@ -95,13 +138,24 @@ function getRegisteredUsers(): StoredUser[] {
     
     const users = JSON.parse(usersData);
     if (!Array.isArray(users)) {
-      console.warn('Invalid users data format, returning empty array');
+      logger.warn('Invalid users data format, returning empty array');
       return [];
     }
     
-    return users;
+    // Migrate legacy users to new format
+    return users.map((user: Partial<StoredUser> & { passwordVersion?: number }) => {
+      // If user doesn't have passwordVersion, it's a legacy user
+      if (!user.passwordVersion) {
+        return {
+          ...user,
+          passwordVersion: PASSWORD_VERSIONS.LEGACY,
+          salt: undefined
+        } as StoredUser;
+      }
+      return user as StoredUser;
+    });
   } catch (error) {
-    console.error('Error loading registered users:', error);
+    logAuth.error('loading registered users', error);
     return [];
   }
 }
@@ -128,7 +182,7 @@ function saveUsers(users: StoredUser[]): void {
     
     throw new Error('No compatible storage method available');
   } catch (error) {
-    console.error('Error saving users to storage:', error);
+    logAuth.error('saving users to storage', error);
     throw new Error('Failed to save user data to storage');
   }
 }
@@ -161,7 +215,7 @@ function saveSession(sessionData: SessionData): void {
     
     throw new Error('No compatible storage method available');
   } catch (error) {
-    console.error('Error saving session to storage:', error);
+    logAuth.error('saving session to storage', error);
     throw new Error('Failed to save session data to storage');
   }
 }
@@ -196,7 +250,7 @@ function getSession(): SessionData | null {
     const session = JSON.parse(sessionData);
     return session;
   } catch (error) {
-    console.error('Error loading session from storage:', error);
+    logAuth.error('loading session from storage', error);
     return null;
   }
 }
@@ -218,7 +272,7 @@ function clearSession(): void {
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
     }
   } catch (error) {
-    console.error('Error clearing session from storage:', error);
+    logAuth.error('clearing session from storage', error);
   }
 }
 
@@ -271,7 +325,7 @@ export function getCurrentSessionUser(): User | null {
   }
   
   if (!isSessionValid(session)) {
-    console.log('Session expired, clearing session data');
+    logAuth.session('expired, clearing session data');
     clearSession();
     return null;
   }
@@ -288,7 +342,7 @@ export function getCurrentSessionUser(): User | null {
   
   // For regular users, validate that user still exists in storage
   if (!validateUserSession(session.userId)) {
-    console.log('User no longer exists in storage, clearing session');
+    logAuth.session('user no longer exists in storage, clearing session', session.userId);
     clearSession();
     return null;
   }
@@ -370,7 +424,7 @@ export function getUserByEmail(email: string): User | null {
 /**
  * Register a new user
  */
-export function registerUser(email: string, password: string, name: string): User {
+export async function registerUser(email: string, password: string, name: string): Promise<User> {
   // Validate input
   if (!email || !password || !name) {
     throw new Error('Email, password, and name are required');
@@ -392,14 +446,17 @@ export function registerUser(email: string, password: string, name: string): Use
     throw new Error('User with this email already exists');
   }
   
-  // Create new user
-  const newUser: StoredUser = {
-    id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    email: email.toLowerCase(),
-    name: name.trim(),
-    passwordHash: hashPassword(password),
-    createdAt: new Date().toISOString()
-  };
+      // Create new user
+    const { hash, salt, version } = await hashPassword(password);
+    const newUser: StoredUser = {
+      id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      email: email.toLowerCase(),
+      name: name.trim(),
+      passwordHash: hash,
+      passwordVersion: version,
+      salt: salt,
+      createdAt: new Date().toISOString()
+    };
   
   // Save to storage
   const users = getRegisteredUsers();
@@ -418,7 +475,7 @@ export function registerUser(email: string, password: string, name: string): Use
 /**
  * Authenticate user with email and password
  */
-export function authenticateUser(email: string, password: string): User {
+export async function authenticateUser(email: string, password: string): Promise<User> {
   // Validate input
   if (!email || !password) {
     throw new Error('Email and password are required');
@@ -426,15 +483,32 @@ export function authenticateUser(email: string, password: string): User {
   
   // Find user by email
   const users = getRegisteredUsers();
-  const storedUser = users.find(user => user.email.toLowerCase() === email.toLowerCase());
+  const userIndex = users.findIndex(user => user.email.toLowerCase() === email.toLowerCase());
   
-  if (!storedUser) {
+  if (userIndex === -1) {
     throw new Error('Invalid email or password');
   }
   
-  // Verify password using mobile-compatible verification
-  if (!verifyPassword(password, storedUser.passwordHash)) {
+  const storedUser = users[userIndex];
+  
+  // Verify password using secure verification
+  if (!await verifyPassword(password, storedUser.passwordHash, storedUser.salt || '', storedUser.passwordVersion)) {
     throw new Error('Invalid email or password');
+  }
+  
+  // Migrate legacy password to secure format if needed
+  if (storedUser.passwordVersion === PASSWORD_VERSIONS.LEGACY) {
+    try {
+      const { hash, salt, version } = await hashPassword(password);
+      users[userIndex].passwordHash = hash;
+      users[userIndex].salt = salt;
+      users[userIndex].passwordVersion = version;
+      saveUsers(users);
+      logger.info('Password migrated to secure format for user:', storedUser.email);
+    } catch (error) {
+      logger.warn('Failed to migrate password for user:', storedUser.email, error);
+      // Continue with authentication even if migration fails
+    }
   }
   
   // Return user object without password
@@ -477,7 +551,7 @@ export function updateUserProfile(userId: string, name: string): User {
 /**
  * Change user password
  */
-export function changePassword(userId: string, currentPassword: string, newPassword: string): void {
+export async function changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
   if (!currentPassword || !newPassword) {
     throw new Error('Current password and new password are required');
   }
@@ -493,20 +567,23 @@ export function changePassword(userId: string, currentPassword: string, newPassw
     throw new Error('User not found');
   }
   
-  // Verify current password using mobile-compatible verification
-  if (!verifyPassword(currentPassword, users[userIndex].passwordHash)) {
-    throw new Error('Current password is incorrect');
-  }
-  
-  // Update password
-  users[userIndex].passwordHash = hashPassword(newPassword);
-  saveUsers(users);
+      // Verify current password using secure verification
+    if (!await verifyPassword(currentPassword, users[userIndex].passwordHash, users[userIndex].salt || '', users[userIndex].passwordVersion)) {
+      throw new Error('Current password is incorrect');
+    }
+    
+    // Update password
+    const { hash, salt, version } = await hashPassword(newPassword);
+    users[userIndex].passwordHash = hash;
+    users[userIndex].passwordVersion = version;
+    users[userIndex].salt = salt;
+    saveUsers(users);
 }
 
 /**
  * Delete user account
  */
-export function deleteUser(userId: string, password: string): void {
+export async function deleteUser(userId: string, password: string): Promise<void> {
   if (!password) {
     throw new Error('Password is required to delete account');
   }
@@ -518,10 +595,10 @@ export function deleteUser(userId: string, password: string): void {
     throw new Error('User not found');
   }
   
-  // Verify password using mobile-compatible verification
-  if (!verifyPassword(password, users[userIndex].passwordHash)) {
-    throw new Error('Password is incorrect');
-  }
+      // Verify password using secure verification
+    if (!await verifyPassword(password, users[userIndex].passwordHash, users[userIndex].salt || '', users[userIndex].passwordVersion)) {
+      throw new Error('Password is incorrect');
+    }
   
   // Remove user from storage
   users.splice(userIndex, 1);
@@ -558,7 +635,7 @@ export function clearAllUsers(): void {
       sessionStorage.removeItem(USERS_STORAGE_KEY);
     }
   } catch (error) {
-    console.error('Error clearing users:', error);
+    logAuth.error('clearing users', error);
     throw new Error('Failed to clear user data');
   }
 }
@@ -651,7 +728,7 @@ export function getStorageUsageInfo(): {
       }
     }
   } catch (error) {
-    console.warn('Error calculating storage usage:', error);
+    logger.warn('Error calculating storage usage:', error);
   }
   
   const totalSize = localStorageSize + sessionStorageSize;

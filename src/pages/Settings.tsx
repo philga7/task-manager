@@ -7,6 +7,7 @@ import { AuthModal } from '../components/Auth/AuthModal';
 import { DataRecovery } from '../utils/storage';
 import { authenticateUser, registerUser } from '../utils/auth';
 import { calculateRealTimeAnalytics, generateWeeklyProductivityData } from '../utils/progress';
+import { logger } from '../utils/logger';
 
 export function Settings() {
   const { state, dispatch } = useApp();
@@ -27,7 +28,7 @@ export function Settings() {
          state.authentication.user.email !== state.userSettings.profile.email);
       
       if (needsSync) {
-        console.log('Profile data mismatch detected in Settings, syncing...');
+        logger.info('Profile data mismatch detected in Settings, syncing...');
         dispatch({ type: 'SYNC_PROFILE_DATA' });
       }
     }
@@ -38,7 +39,7 @@ export function Settings() {
     setIsAuthLoading(true);
     
     try {
-      const user = authenticateUser(email, password);
+      const user = await authenticateUser(email, password);
       dispatch({ type: 'LOGIN', payload: user });
       setIsAuthModalOpen(false);
     } catch (error) {
@@ -53,7 +54,7 @@ export function Settings() {
     setIsAuthLoading(true);
     
     try {
-      const user = registerUser(email, password, name);
+      const user = await registerUser(email, password, name);
       dispatch({ type: 'LOGIN', payload: user });
       setIsAuthModalOpen(false);
     } catch (error) {
@@ -130,6 +131,7 @@ export function Settings() {
           defaultMode={authMode}
           isLoading={isAuthLoading}
           error={authError}
+          onClearError={() => setAuthError(undefined)}
         />
       </div>
     );
@@ -143,9 +145,7 @@ export function Settings() {
     dispatch({ type: 'SWITCH_TO_DEMO' });
   };
 
-  const handleSwitchToAuth = () => {
-    dispatch({ type: 'SWITCH_TO_AUTH' });
-  };
+
 
   // Data backup and restore functions
   const handleExportData = () => {
@@ -265,11 +265,7 @@ export function Settings() {
                   </>
                 )}
 
-                {state.authentication.isDemoMode && (
-                  <Button variant="secondary" size="sm" onClick={handleSwitchToAuth}>
-                    Exit Demo Mode
-                  </Button>
-                )}
+
 
                 {state.authentication.isAuthenticated && !state.authentication.isDemoMode && (
                   <Button variant="ghost" size="sm" onClick={handleLogout} className="text-red-400 hover:text-red-300">
@@ -664,6 +660,7 @@ export function Settings() {
         defaultMode={authMode}
         isLoading={isAuthLoading}
         error={authError}
+        onClearError={() => setAuthError(undefined)}
       />
     </>
   );
