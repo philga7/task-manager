@@ -258,7 +258,10 @@ export function calculateRealTimeAnalytics(tasks: Task[]): {
   if (completedTasks.length > 0) {
     const totalDays = completedTasks.reduce((sum, task) => {
       if (task.completedAt && task.createdAt) {
-        const days = Math.ceil((task.completedAt.getTime() - task.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+        // Ensure both dates are valid Date objects
+        const completedAt = task.completedAt instanceof Date ? task.completedAt : new Date(task.completedAt);
+        const createdAt = task.createdAt instanceof Date ? task.createdAt : new Date(task.createdAt);
+        const days = Math.ceil((completedAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
         return sum + Math.max(1, days); // Minimum 1 day
       }
       return sum;
@@ -269,10 +272,14 @@ export function calculateRealTimeAnalytics(tasks: Task[]): {
   // Calculate streak days (consecutive days with completed tasks)
   const completedTasksWithDates = completedTasks
     .filter(task => task.completedAt)
-    .map(task => ({
-      ...task,
-      completedDate: task.completedAt!.toDateString()
-    }))
+    .map(task => {
+      // Ensure completedAt is a valid Date object
+      const completedAt = task.completedAt instanceof Date ? task.completedAt : new Date(task.completedAt);
+      return {
+        ...task,
+        completedDate: completedAt.toDateString()
+      };
+    })
     .sort((a, b) => new Date(b.completedDate).getTime() - new Date(a.completedDate).getTime());
   
   let streakDays = 0;
@@ -340,14 +347,16 @@ export function generateWeeklyProductivityData(tasks: Task[]): { days: string[];
     // Count tasks completed on this day
     const tasksCompletedOnDay = tasks.filter(task => {
       if (task.status !== 'completed' || !task.completedAt) return false;
-      const completedDate = new Date(task.completedAt);
-      return completedDate >= currentDate && completedDate < nextDate;
+      // Ensure completedAt is a valid Date object
+      const completedAt = task.completedAt instanceof Date ? task.completedAt : new Date(task.completedAt);
+      return completedAt >= currentDate && completedAt < nextDate;
     }).length;
     
     // Count total tasks created on this day
     const tasksCreatedOnDay = tasks.filter(task => {
-      const createdDate = new Date(task.createdAt);
-      return createdDate >= currentDate && createdDate < nextDate;
+      // Ensure createdAt is a valid Date object
+      const createdAt = task.createdAt instanceof Date ? task.createdAt : new Date(task.createdAt);
+      return createdAt >= currentDate && createdAt < nextDate;
     }).length;
     
     // Calculate productivity percentage for this day
