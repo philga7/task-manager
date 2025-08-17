@@ -34,24 +34,50 @@ const PASSWORD_VERSIONS = {
   SECURE: 2  // New Web Crypto API implementation
 };
 
+// Check Web Crypto API availability
+const isWebCryptoAvailable = typeof crypto !== 'undefined' && 
+                            crypto.subtle && 
+                            typeof crypto.subtle.digest === 'function' &&
+                            typeof crypto.getRandomValues === 'function';
+
+if (!isWebCryptoAvailable) {
+  logger.warn('Web Crypto API not available, will use fallback methods');
+}
+
 /**
  * Generate a cryptographically secure random salt
  */
 async function generateSalt(): Promise<string> {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  try {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  } catch (error) {
+    logAuth.error('Failed to generate salt using crypto.getRandomValues', error);
+    // Fallback to Math.random for older browsers
+    const fallbackSalt = Array.from({ length: 32 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join('');
+    logAuth.warn('Using fallback salt generation method');
+    return fallbackSalt;
+  }
 }
 
 /**
  * Secure password hashing using Web Crypto API (SHA-256)
  */
 async function hashPasswordSecure(password: string, salt: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + salt);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password + salt);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+  } catch (error) {
+    logAuth.error('Failed to hash password using Web Crypto API', error);
+    // Fallback to simple hash for older browsers
+    const fallbackHash = btoa(password + salt);
+    logAuth.warn('Using fallback password hashing method');
+    return fallbackHash;
+  }
 }
 
 
@@ -84,17 +110,31 @@ function verifyPasswordLegacy(password: string, hash: string): boolean {
  * Secure password verification using Web Crypto API
  */
 async function verifyPasswordSecure(password: string, hash: string, salt: string): Promise<boolean> {
-  const expectedHash = await hashPasswordSecure(password, salt);
-  return hash === expectedHash;
+  try {
+    const expectedHash = await hashPasswordSecure(password, salt);
+    const isValid = hash === expectedHash;
+    logAuth.info(`Secure password verification: ${isValid ? 'SUCCESS' : 'FAILED'} (hash length: ${hash.length}, expected length: ${expectedHash.length})`);
+    return isValid;
+  } catch (error) {
+    logAuth.error('Secure password verification failed', error);
+    throw error;
+  }
 }
 
 /**
- * Main password hashing function - uses secure method
+ * Main password hashing function - uses secure method with fallback
  */
 export async function hashPassword(password: string): Promise<{ hash: string; salt: string; version: number }> {
-  const salt = await generateSalt();
-  const hash = await hashPasswordSecure(password, salt);
-  return { hash, salt, version: PASSWORD_VERSIONS.SECURE };
+  if (isWebCryptoAvailable) {
+    const salt = await generateSalt();
+    const hash = await hashPasswordSecure(password, salt);
+    return { hash, salt, version: PASSWORD_VERSIONS.SECURE };
+  } else {
+    // Fallback to legacy method for browsers without Web Crypto API
+    const salt = 'task_manager_salt_2024';
+    const hash = btoa(password + salt);
+    return { hash, salt, version: PASSWORD_VERSIONS.LEGACY };
+  }
 }
 
 /**
@@ -115,22 +155,32 @@ export async function verifyPassword(password: string, hash: string, salt: strin
 
 
 /**
- * Get all registered users from storage with mobile browser compatibility
+ * Get all registered users from storage
  */
 function getRegisteredUsers(): StoredUser[] {
   try {
-    const browserInfo = detectMobileBrowser();
     let usersData: string | null = null;
+    let storageMethod = 'none';
     
     // Try localStorage first
-    if (browserInfo.supportsLocalStorage) {
+    try {
       usersData = localStorage.getItem(USERS_STORAGE_KEY);
+      storageMethod = 'localStorage';
+    } catch {
+      logAuth.warn('localStorage failed, trying sessionStorage');
     }
     
     // Fallback to sessionStorage if localStorage fails
-    if (!usersData && browserInfo.supportsSessionStorage) {
-      usersData = sessionStorage.getItem(USERS_STORAGE_KEY);
+    if (!usersData) {
+      try {
+        usersData = sessionStorage.getItem(USERS_STORAGE_KEY);
+        storageMethod = 'sessionStorage';
+      } catch {
+        logAuth.warn('sessionStorage also failed');
+      }
     }
+    
+    logAuth.info(`Retrieved users data from ${storageMethod}: ${usersData ? 'found' : 'not found'}`);
     
     if (!usersData) {
       return [];
@@ -141,6 +191,8 @@ function getRegisteredUsers(): StoredUser[] {
       logger.warn('Invalid users data format, returning empty array');
       return [];
     }
+    
+    logAuth.info(`Parsed ${users.length} users from storage`);
     
     // Migrate legacy users to new format
     return users.map((user: Partial<StoredUser> & { passwordVersion?: number }) => {
@@ -161,23 +213,26 @@ function getRegisteredUsers(): StoredUser[] {
 }
 
 /**
- * Save users to storage with mobile browser compatibility
+ * Save users to storage
  */
 function saveUsers(users: StoredUser[]): void {
   try {
-    const browserInfo = detectMobileBrowser();
     const usersData = JSON.stringify(users);
     
     // Try localStorage first
-    if (browserInfo.supportsLocalStorage) {
+    try {
       localStorage.setItem(USERS_STORAGE_KEY, usersData);
       return;
+    } catch {
+      logAuth.warn('localStorage failed, trying sessionStorage');
     }
     
     // Fallback to sessionStorage
-    if (browserInfo.supportsSessionStorage) {
+    try {
       sessionStorage.setItem(USERS_STORAGE_KEY, usersData);
       return;
+    } catch {
+      logAuth.warn('sessionStorage also failed');
     }
     
     throw new Error('No compatible storage method available');
@@ -188,29 +243,26 @@ function saveUsers(users: StoredUser[]): void {
 }
 
 /**
- * Save session data to storage with mobile browser compatibility
+ * Save session data to storage
  */
 function saveSession(sessionData: SessionData): void {
   try {
-    const browserInfo = detectMobileBrowser();
     const sessionDataString = JSON.stringify(sessionData);
     
-    // For private browsing, prefer sessionStorage
-    if (browserInfo.isPrivateBrowsing && browserInfo.supportsSessionStorage) {
-      sessionStorage.setItem(SESSION_STORAGE_KEY, sessionDataString);
-      return;
-    }
-    
     // Try localStorage first
-    if (browserInfo.supportsLocalStorage) {
+    try {
       localStorage.setItem(SESSION_STORAGE_KEY, sessionDataString);
       return;
+    } catch {
+      logAuth.warn('localStorage failed, trying sessionStorage');
     }
     
     // Fallback to sessionStorage
-    if (browserInfo.supportsSessionStorage) {
+    try {
       sessionStorage.setItem(SESSION_STORAGE_KEY, sessionDataString);
       return;
+    } catch {
+      logAuth.warn('sessionStorage also failed');
     }
     
     throw new Error('No compatible storage method available');
@@ -221,26 +273,26 @@ function saveSession(sessionData: SessionData): void {
 }
 
 /**
- * Get session data from storage with mobile browser compatibility
+ * Get session data from storage
  */
 function getSession(): SessionData | null {
   try {
-    const browserInfo = detectMobileBrowser();
     let sessionData: string | null = null;
     
-    // For private browsing, check sessionStorage first
-    if (browserInfo.isPrivateBrowsing && browserInfo.supportsSessionStorage) {
-      sessionData = sessionStorage.getItem(SESSION_STORAGE_KEY);
-    }
-    
-    // Try localStorage
-    if (!sessionData && browserInfo.supportsLocalStorage) {
+    // Try localStorage first
+    try {
       sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
+    } catch {
+      logAuth.warn('localStorage failed, trying sessionStorage');
     }
     
     // Fallback to sessionStorage
-    if (!sessionData && browserInfo.supportsSessionStorage) {
-      sessionData = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!sessionData) {
+      try {
+        sessionData = sessionStorage.getItem(SESSION_STORAGE_KEY);
+      } catch {
+        logAuth.warn('sessionStorage also failed');
+      }
     }
     
     if (!sessionData) {
@@ -256,20 +308,22 @@ function getSession(): SessionData | null {
 }
 
 /**
- * Clear session data from storage with mobile browser compatibility
+ * Clear session data from storage
  */
 function clearSession(): void {
   try {
-    const browserInfo = detectMobileBrowser();
-    
     // Clear from localStorage
-    if (browserInfo.supportsLocalStorage) {
+    try {
       localStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch {
+      logAuth.warn('Failed to clear localStorage session');
     }
     
     // Clear from sessionStorage
-    if (browserInfo.supportsSessionStorage) {
+    try {
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch {
+      logAuth.warn('Failed to clear sessionStorage session');
     }
   } catch (error) {
     logAuth.error('clearing session from storage', error);
@@ -481,24 +535,44 @@ export async function authenticateUser(email: string, password: string): Promise
     throw new Error('Email and password are required');
   }
   
+  // Add detailed logging for debugging mobile issues
+  const browserInfo = detectMobileBrowser();
+  logAuth.info(`Authentication attempt for ${email} on ${browserInfo.browserName}`);
+  logAuth.info(`Mobile: ${browserInfo.isMobile}, LocalStorage: ${browserInfo.supportsLocalStorage}, SessionStorage: ${browserInfo.supportsSessionStorage}`);
+  
   // Find user by email
   const users = getRegisteredUsers();
+  logAuth.info(`Found ${users.length} registered users in storage`);
+  
   const userIndex = users.findIndex(user => user.email.toLowerCase() === email.toLowerCase());
   
   if (userIndex === -1) {
+    logAuth.warn(`User not found for email: ${email}`);
     throw new Error('Invalid email or password');
   }
   
   const storedUser = users[userIndex];
+  logAuth.info(`Found user: ${storedUser.email} (ID: ${storedUser.id}) with password version: ${storedUser.passwordVersion}`);
   
-  // Verify password using secure verification
-  if (!await verifyPassword(password, storedUser.passwordHash, storedUser.salt || '', storedUser.passwordVersion)) {
+  try {
+    // Verify password using secure verification
+    const passwordValid = await verifyPassword(password, storedUser.passwordHash, storedUser.salt || '', storedUser.passwordVersion);
+    
+    if (!passwordValid) {
+      logAuth.warn(`Password verification failed for user: ${storedUser.email}`);
+      throw new Error('Invalid email or password');
+    }
+    
+    logAuth.info(`Password verification successful for user: ${storedUser.email}`);
+  } catch (error) {
+    logAuth.error(`Password verification error for user: ${storedUser.email}`, error);
     throw new Error('Invalid email or password');
   }
   
   // Migrate legacy password to secure format if needed
   if (storedUser.passwordVersion === PASSWORD_VERSIONS.LEGACY) {
     try {
+      logAuth.info(`Migrating legacy password for user: ${storedUser.email}`);
       const { hash, salt, version } = await hashPassword(password);
       users[userIndex].passwordHash = hash;
       users[userIndex].salt = salt;
@@ -619,24 +693,72 @@ export function getAllUsers(): User[] {
 }
 
 /**
- * Clear all user data (for testing/reset purposes) with mobile browser compatibility
+ * Clear all user data (for testing/reset purposes)
  */
 export function clearAllUsers(): void {
   try {
-    const browserInfo = detectMobileBrowser();
-    
     // Clear from localStorage
-    if (browserInfo.supportsLocalStorage) {
+    try {
       localStorage.removeItem(USERS_STORAGE_KEY);
+    } catch {
+      logAuth.warn('Failed to clear localStorage users');
     }
     
     // Clear from sessionStorage
-    if (browserInfo.supportsSessionStorage) {
+    try {
       sessionStorage.removeItem(USERS_STORAGE_KEY);
+    } catch {
+      logAuth.warn('Failed to clear sessionStorage users');
     }
   } catch (error) {
     logAuth.error('clearing users', error);
     throw new Error('Failed to clear user data');
+  }
+}
+
+/**
+ * Clear corrupted storage data and reset to clean state
+ */
+export function clearCorruptedStorage(): void {
+  try {
+    const browserInfo = detectMobileBrowser();
+    
+    // Clear all potentially corrupted data
+    const keysToClear = [
+      'task_manager_users',
+      'task_manager_session',
+      'task-manager-state',
+      'task-manager-state-user_1755389080848_xfr7tnfnk',
+      'legacy key for backward compatibility'
+    ];
+    
+    // Clear from localStorage
+    if (browserInfo.supportsLocalStorage) {
+      keysToClear.forEach(key => {
+        try {
+          localStorage.removeItem(key);
+          logger.info(`Cleared corrupted localStorage key: ${key}`);
+        } catch (error) {
+          logger.warn(`Failed to clear localStorage key ${key}:`, error);
+        }
+      });
+    }
+    
+    // Clear from sessionStorage
+    if (browserInfo.supportsSessionStorage) {
+      keysToClear.forEach(key => {
+        try {
+          sessionStorage.removeItem(key);
+          logger.info(`Cleared corrupted sessionStorage key: ${key}`);
+        } catch (error) {
+          logger.warn(`Failed to clear sessionStorage key ${key}:`, error);
+        }
+      });
+    }
+    
+    logger.info('Storage corruption cleanup completed');
+  } catch (error) {
+    logger.error('Failed to clear corrupted storage:', error);
   }
 }
 
@@ -656,7 +778,6 @@ export function checkMobileCompatibility(): {
   recommendations: string[];
   errorMessage: string | null;
 } {
-  const browserInfo = detectMobileBrowser();
   const compatibility = hasCompatibilityIssues();
   
   if (!compatibility.hasIssues) {
@@ -669,17 +790,7 @@ export function checkMobileCompatibility(): {
   }
   
   // Generate user-friendly error message
-  let errorMessage = 'Your browser has some limitations:';
-  
-  if (browserInfo.isIOS && browserInfo.isSafari && browserInfo.isPrivateBrowsing) {
-    errorMessage = 'Private browsing mode detected. Some features may not work properly. Please use regular browsing mode for the best experience.';
-  } else if (browserInfo.isIOS && browserInfo.isSafari) {
-    errorMessage = 'iOS Safari detected. Storage is limited but the app should work. Consider using Chrome or Firefox for better performance.';
-  } else if (browserInfo.isAndroid && browserInfo.isChrome) {
-    errorMessage = 'Android Chrome detected. The app should work normally.';
-  } else if (browserInfo.isMobile) {
-    errorMessage = 'Mobile browser detected. Some features may be limited. Consider using a desktop browser for the best experience.';
-  }
+  const errorMessage = 'Your browser has some limitations. Please use a modern browser with storage support.';
   
   return {
     isCompatible: true, // We'll try to work around issues
@@ -690,40 +801,65 @@ export function checkMobileCompatibility(): {
 }
 
 /**
- * Get storage usage information for mobile browsers
+ * Debug function to check authentication state on mobile devices
+ */
+export function debugMobileAuthState(): {
+  browserInfo: ReturnType<typeof detectMobileBrowser>;
+  storageInfo: ReturnType<typeof getStorageUsageInfo>;
+  userCount: number;
+  sessionInfo: ReturnType<typeof getSessionInfo>;
+} {
+  const browserInfo = detectMobileBrowser();
+  const storageInfo = getStorageUsageInfo();
+  const userCount = getUserCount();
+  const sessionInfo = getSessionInfo();
+  
+  // Log all debug information
+  logAuth.info('=== MOBILE AUTH DEBUG INFO ===');
+  logAuth.info('Browser:', browserInfo);
+  logAuth.info('Storage:', storageInfo);
+  logAuth.info('User count:', userCount);
+  logAuth.info('Session:', sessionInfo);
+  logAuth.info('=== END DEBUG INFO ===');
+  
+  return {
+    browserInfo,
+    storageInfo,
+    userCount,
+    sessionInfo
+  };
+}
+
+/**
+ * Get storage usage information
  */
 export function getStorageUsageInfo(): {
   localStorageSize: number;
   sessionStorageSize: number;
   totalSize: number;
-  quota: number | null;
-  usagePercentage: number;
 } {
-  const browserInfo = detectMobileBrowser();
   let localStorageSize = 0;
   let sessionStorageSize = 0;
   
   try {
-    if (browserInfo.supportsLocalStorage) {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key) {
-          const value = localStorage.getItem(key);
-          if (value) {
-            localStorageSize += key.length + value.length;
-          }
+    // Calculate localStorage size
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) {
+        const value = localStorage.getItem(key);
+        if (value) {
+          localStorageSize += key.length + value.length;
         }
       }
     }
     
-    if (browserInfo.supportsSessionStorage) {
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key) {
-          const value = sessionStorage.getItem(key);
-          if (value) {
-            sessionStorageSize += key.length + value.length;
-          }
+    // Calculate sessionStorage size
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key) {
+        const value = sessionStorage.getItem(key);
+        if (value) {
+          sessionStorageSize += key.length + value.length;
         }
       }
     }
@@ -732,15 +868,11 @@ export function getStorageUsageInfo(): {
   }
   
   const totalSize = localStorageSize + sessionStorageSize;
-  const quota = browserInfo.storageQuota;
-  const usagePercentage = quota ? (totalSize / quota) * 100 : 0;
   
   return {
     localStorageSize,
     sessionStorageSize,
-    totalSize,
-    quota,
-    usagePercentage
+    totalSize
   };
 }
 
