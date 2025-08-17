@@ -1,6 +1,6 @@
 import React from 'react';
 import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { ErrorBoundary } from './components/UI/ErrorBoundary';
 import { Sidebar } from './components/Layout/Sidebar';
@@ -13,7 +13,29 @@ import { Projects } from './pages/Projects';
 import { Goals } from './pages/Goals';
 import { Analytics } from './pages/Analytics';
 import { Settings } from './pages/Settings';
+import { useApp } from './context/useApp';
 
+// Settings wrapper component that redirects authenticated users to Dashboard
+function SettingsWrapper() {
+  const { state } = useApp();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated, isDemoMode } = state.authentication;
+
+  React.useEffect(() => {
+    // If authenticated or in demo mode and on settings page, redirect to dashboard
+    if ((isAuthenticated || isDemoMode) && location.pathname === '/settings') {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, isDemoMode, location.pathname, navigate]);
+
+  // Only render Settings if not authenticated and not in demo mode
+  if (isAuthenticated || isDemoMode) {
+    return null; // Will redirect via useEffect
+  }
+
+  return <Settings />;
+}
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -53,7 +75,7 @@ function App() {
                       <Analytics />
                     </ProtectedRoute>
                   } />
-                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/settings" element={<SettingsWrapper />} />
                 </Routes>
               </main>
             </div>

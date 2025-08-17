@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/UI/Card';
 import { Button } from '../components/UI/Button';
 import { useApp } from '../context/useApp';
@@ -11,6 +12,7 @@ import { logger } from '../utils/logger';
 
 export function Settings() {
   const { state, dispatch } = useApp();
+  const navigate = useNavigate();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authError, setAuthError] = useState<string | undefined>();
@@ -42,6 +44,8 @@ export function Settings() {
       const user = await authenticateUser(email, password);
       dispatch({ type: 'LOGIN', payload: user });
       setIsAuthModalOpen(false);
+      // Redirect to Dashboard after successful login
+      navigate('/');
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Login failed. Please try again.');
     } finally {
@@ -57,6 +61,8 @@ export function Settings() {
       const user = await registerUser(email, password, name);
       dispatch({ type: 'LOGIN', payload: user });
       setIsAuthModalOpen(false);
+      // Redirect to Dashboard after successful registration
+      navigate('/');
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Registration failed. Please try again.');
     } finally {
@@ -103,6 +109,8 @@ export function Settings() {
             <button
               onClick={() => {
                 dispatch({ type: 'SWITCH_TO_DEMO' });
+                // Redirect to Dashboard after entering demo mode
+                navigate('/');
               }}
               className="px-6 py-3 border border-stone-600 hover:border-stone-500 text-stone-300 hover:text-stone-200 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
             >
@@ -143,6 +151,8 @@ export function Settings() {
 
   const handleSwitchToDemo = () => {
     dispatch({ type: 'SWITCH_TO_DEMO' });
+    // Redirect to Dashboard after entering demo mode
+    navigate('/');
   };
 
 
