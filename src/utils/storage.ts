@@ -125,11 +125,12 @@ export function saveToStorage(key: string, state: AppState): void {
     const browserInfo = detectMobileBrowser();
     const strategy = getRecommendedStorageStrategy();
     
-    // Check if data would exceed recommended size for current browser
+    // Check if data would exceed reasonable size limit
     const dataSize = new Blob([serializedData]).size;
+    const maxSize = 5 * 1024 * 1024; // 5MB limit
     
-    if (dataSize > strategy.maxDataSize) {
-      throw new Error(`Data size (${(dataSize / 1024 / 1024).toFixed(2)}MB) exceeds recommended limit for ${browserInfo.browserName} (${(strategy.maxDataSize / 1024 / 1024).toFixed(1)}MB)`);
+    if (dataSize > maxSize) {
+      throw new Error(`Data size (${(dataSize / 1024 / 1024).toFixed(2)}MB) exceeds recommended limit (5MB)`);
     }
     
     // Use recommended storage strategy
@@ -326,22 +327,7 @@ export function clearDemoStorageData(): void {
       }
     }
     
-    // Clear from IndexedDB if supported (synchronous approach)
-    if (browserInfo.supportsIndexedDB) {
-      try {
-        // Use synchronous approach for IndexedDB clearing
-        const request = indexedDB.open('taskManagerDB', 1);
-        request.onsuccess = () => {
-          const db = request.result;
-          const transaction = db.transaction(['data'], 'readwrite');
-          const store = transaction.objectStore('data');
-          store.delete('task-manager-demo-state');
-          store.delete('task-manager-state');
-        };
-      } catch {
-        // Ignore IndexedDB errors
-      }
-    }
+
     
     // Debug: Log what's in storage after clearing
     console.log('=== After Clearing Demo Storage ===');
@@ -430,42 +416,13 @@ export class RobustStorage {
     INDEXED_DB: 'taskManagerDB'
   };
 
-  // Mobile-compatible obfuscation (not encryption, just makes it harder to read)
+  // Simple data storage without obfuscation to avoid conflicts with main storage system
   private static obfuscate(data: string): string {
-    try {
-      // Use btoa if available, otherwise use simple encoding
-      if (typeof btoa !== 'undefined') {
-        return btoa(data + '_' + Date.now());
-      } else {
-        // Fallback for browsers without btoa
-        return encodeURIComponent(data + '_' + Date.now());
-      }
-    } catch (error) {
-      console.warn('btoa not available, using fallback encoding:', error);
-      return encodeURIComponent(data + '_' + Date.now());
-    }
+    return data; // No obfuscation to maintain compatibility
   }
 
   private static deobfuscate(obfuscatedData: string): string | null {
-    try {
-      // Try btoa first
-      if (typeof atob !== 'undefined') {
-        const decoded = atob(obfuscatedData);
-        return decoded.split('_')[0];
-      } else {
-        // Fallback for browsers without atob
-        const decoded = decodeURIComponent(obfuscatedData);
-        return decoded.split('_')[0];
-      }
-    } catch (error) {
-      console.warn('atob not available, trying fallback decoding:', error);
-      try {
-        const decoded = decodeURIComponent(obfuscatedData);
-        return decoded.split('_')[0];
-      } catch {
-        return null;
-      }
-    }
+    return obfuscatedData; // No deobfuscation needed
   }
 
   // Try multiple storage mechanisms with mobile browser compatibility
@@ -475,10 +432,11 @@ export class RobustStorage {
     const browserInfo = detectMobileBrowser();
     const strategy = getRecommendedStorageStrategy();
     
-    // Check data size against recommended limits
+    // Check data size against reasonable limits
     const dataSize = new Blob([obfuscatedData]).size;
-    if (dataSize > strategy.maxDataSize) {
-      console.warn(`Data size (${(dataSize / 1024 / 1024).toFixed(2)}MB) exceeds recommended limit for ${browserInfo.browserName}`);
+    const maxSize = 5 * 1024 * 1024; // 5MB limit
+    if (dataSize > maxSize) {
+      console.warn(`Data size (${(dataSize / 1024 / 1024).toFixed(2)}MB) exceeds recommended limit (5MB)`);
     }
     
     // Try primary storage method first
@@ -506,14 +464,6 @@ export class RobustStorage {
         } else if (fallback === 'sessionStorage' && browserInfo.supportsSessionStorage) {
           sessionStorage.setItem(key, obfuscatedData);
           console.log(`Saved to sessionStorage fallback`);
-          return true;
-        } else if (fallback === 'indexedDB' && browserInfo.supportsIndexedDB) {
-          await this.saveToIndexedDB(key, obfuscatedData);
-          console.log(`Saved to IndexedDB fallback`);
-          return true;
-        } else if (fallback === 'cookies' && browserInfo.supportsCookies) {
-          document.cookie = `${key}=${encodeURIComponent(obfuscatedData)}; max-age=31536000; path=/`;
-          console.log(`Saved to cookies fallback`);
           return true;
         }
       } catch (error) {
@@ -573,27 +523,6 @@ export class RobustStorage {
             if (deobfuscated) {
               console.log(`Loaded from sessionStorage fallback`);
               return JSON.parse(deobfuscated);
-            }
-          }
-        } else if (fallback === 'indexedDB' && browserInfo.supportsIndexedDB) {
-          const indexedData = await this.loadFromIndexedDB(key);
-          if (indexedData) {
-            const deobfuscated = this.deobfuscate(indexedData);
-            if (deobfuscated) {
-              console.log(`Loaded from IndexedDB fallback`);
-              return JSON.parse(deobfuscated);
-            }
-          }
-        } else if (fallback === 'cookies' && browserInfo.supportsCookies) {
-          const cookies = document.cookie.split(';');
-          for (const cookie of cookies) {
-            const [cookieKey, cookieValue] = cookie.trim().split('=');
-            if (cookieKey === key) {
-              const deobfuscated = this.deobfuscate(decodeURIComponent(cookieValue));
-              if (deobfuscated) {
-                console.log(`Loaded from cookies fallback`);
-                return JSON.parse(deobfuscated);
-              }
             }
           }
         }
