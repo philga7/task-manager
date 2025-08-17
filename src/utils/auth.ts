@@ -1,4 +1,5 @@
 import { User } from '../types';
+import { detectMobileBrowser, hasCompatibilityIssues } from './mobileDetection';
 
 // User storage interface for localStorage
 interface StoredUser {
@@ -25,21 +26,69 @@ const SESSION_STORAGE_KEY = 'task_manager_session';
 const SESSION_TIMEOUT_HOURS = 24; // Session expires after 24 hours of inactivity
 
 /**
- * Simple password hashing function using btoa with salt
+ * Mobile-compatible password hashing function with fallback for btoa/atob
  * Note: This is for demo purposes only - in production, use proper cryptographic hashing
  */
 function hashPassword(password: string): string {
   const salt = 'task_manager_salt_2024';
   const saltedPassword = password + salt;
-  return btoa(saltedPassword);
+  
+  try {
+    // Try btoa first (standard browsers)
+    if (typeof btoa !== 'undefined') {
+      return btoa(saltedPassword);
+    } else {
+      // Fallback for browsers without btoa (some mobile browsers)
+      return encodeURIComponent(saltedPassword);
+    }
+  } catch (error) {
+    console.warn('btoa not available, using fallback encoding:', error);
+    return encodeURIComponent(saltedPassword);
+  }
 }
 
 /**
- * Get all registered users from localStorage
+ * Mobile-compatible password verification function
+ */
+function verifyPassword(password: string, hash: string): boolean {
+  const salt = 'task_manager_salt_2024';
+  const saltedPassword = password + salt;
+  
+  try {
+    // Try atob first (standard browsers)
+    if (typeof atob !== 'undefined') {
+      const expectedHash = btoa(saltedPassword);
+      return hash === expectedHash;
+    } else {
+      // Fallback for browsers without atob
+      const expectedHash = encodeURIComponent(saltedPassword);
+      return hash === expectedHash;
+    }
+  } catch (error) {
+    console.warn('atob not available, using fallback verification:', error);
+    const expectedHash = encodeURIComponent(saltedPassword);
+    return hash === expectedHash;
+  }
+}
+
+/**
+ * Get all registered users from storage with mobile browser compatibility
  */
 function getRegisteredUsers(): StoredUser[] {
   try {
-    const usersData = localStorage.getItem(USERS_STORAGE_KEY);
+    const browserInfo = detectMobileBrowser();
+    let usersData: string | null = null;
+    
+    // Try localStorage first
+    if (browserInfo.supportsLocalStorage) {
+      usersData = localStorage.getItem(USERS_STORAGE_KEY);
+    }
+    
+    // Fallback to sessionStorage if localStorage fails
+    if (!usersData && browserInfo.supportsSessionStorage) {
+      usersData = sessionStorage.getItem(USERS_STORAGE_KEY);
+    }
+    
     if (!usersData) {
       return [];
     }
@@ -58,35 +107,88 @@ function getRegisteredUsers(): StoredUser[] {
 }
 
 /**
- * Save users to localStorage
+ * Save users to storage with mobile browser compatibility
  */
 function saveUsers(users: StoredUser[]): void {
   try {
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+    const browserInfo = detectMobileBrowser();
+    const usersData = JSON.stringify(users);
+    
+    // Try localStorage first
+    if (browserInfo.supportsLocalStorage) {
+      localStorage.setItem(USERS_STORAGE_KEY, usersData);
+      return;
+    }
+    
+    // Fallback to sessionStorage
+    if (browserInfo.supportsSessionStorage) {
+      sessionStorage.setItem(USERS_STORAGE_KEY, usersData);
+      return;
+    }
+    
+    throw new Error('No compatible storage method available');
   } catch (error) {
-    console.error('Error saving users to localStorage:', error);
+    console.error('Error saving users to storage:', error);
     throw new Error('Failed to save user data to storage');
   }
 }
 
 /**
- * Save session data to localStorage
+ * Save session data to storage with mobile browser compatibility
  */
 function saveSession(sessionData: SessionData): void {
   try {
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
+    const browserInfo = detectMobileBrowser();
+    const sessionDataString = JSON.stringify(sessionData);
+    
+    // For private browsing, prefer sessionStorage
+    if (browserInfo.isPrivateBrowsing && browserInfo.supportsSessionStorage) {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, sessionDataString);
+      return;
+    }
+    
+    // Try localStorage first
+    if (browserInfo.supportsLocalStorage) {
+      localStorage.setItem(SESSION_STORAGE_KEY, sessionDataString);
+      return;
+    }
+    
+    // Fallback to sessionStorage
+    if (browserInfo.supportsSessionStorage) {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, sessionDataString);
+      return;
+    }
+    
+    throw new Error('No compatible storage method available');
   } catch (error) {
-    console.error('Error saving session to localStorage:', error);
+    console.error('Error saving session to storage:', error);
     throw new Error('Failed to save session data to storage');
   }
 }
 
 /**
- * Get session data from localStorage
+ * Get session data from storage with mobile browser compatibility
  */
 function getSession(): SessionData | null {
   try {
-    const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
+    const browserInfo = detectMobileBrowser();
+    let sessionData: string | null = null;
+    
+    // For private browsing, check sessionStorage first
+    if (browserInfo.isPrivateBrowsing && browserInfo.supportsSessionStorage) {
+      sessionData = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    }
+    
+    // Try localStorage
+    if (!sessionData && browserInfo.supportsLocalStorage) {
+      sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
+    }
+    
+    // Fallback to sessionStorage
+    if (!sessionData && browserInfo.supportsSessionStorage) {
+      sessionData = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    }
+    
     if (!sessionData) {
       return null;
     }
@@ -94,19 +196,29 @@ function getSession(): SessionData | null {
     const session = JSON.parse(sessionData);
     return session;
   } catch (error) {
-    console.error('Error loading session from localStorage:', error);
+    console.error('Error loading session from storage:', error);
     return null;
   }
 }
 
 /**
- * Clear session data from localStorage
+ * Clear session data from storage with mobile browser compatibility
  */
 function clearSession(): void {
   try {
-    localStorage.removeItem(SESSION_STORAGE_KEY);
+    const browserInfo = detectMobileBrowser();
+    
+    // Clear from localStorage
+    if (browserInfo.supportsLocalStorage) {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+    
+    // Clear from sessionStorage
+    if (browserInfo.supportsSessionStorage) {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    }
   } catch (error) {
-    console.error('Error clearing session from localStorage:', error);
+    console.error('Error clearing session from storage:', error);
   }
 }
 
@@ -320,9 +432,8 @@ export function authenticateUser(email: string, password: string): User {
     throw new Error('Invalid email or password');
   }
   
-  // Verify password
-  const providedPasswordHash = hashPassword(password);
-  if (storedUser.passwordHash !== providedPasswordHash) {
+  // Verify password using mobile-compatible verification
+  if (!verifyPassword(password, storedUser.passwordHash)) {
     throw new Error('Invalid email or password');
   }
   
@@ -382,9 +493,8 @@ export function changePassword(userId: string, currentPassword: string, newPassw
     throw new Error('User not found');
   }
   
-  // Verify current password
-  const currentPasswordHash = hashPassword(currentPassword);
-  if (users[userIndex].passwordHash !== currentPasswordHash) {
+  // Verify current password using mobile-compatible verification
+  if (!verifyPassword(currentPassword, users[userIndex].passwordHash)) {
     throw new Error('Current password is incorrect');
   }
   
@@ -408,9 +518,8 @@ export function deleteUser(userId: string, password: string): void {
     throw new Error('User not found');
   }
   
-  // Verify password
-  const passwordHash = hashPassword(password);
-  if (users[userIndex].passwordHash !== passwordHash) {
+  // Verify password using mobile-compatible verification
+  if (!verifyPassword(password, users[userIndex].passwordHash)) {
     throw new Error('Password is incorrect');
   }
   
@@ -433,11 +542,21 @@ export function getAllUsers(): User[] {
 }
 
 /**
- * Clear all user data (for testing/reset purposes)
+ * Clear all user data (for testing/reset purposes) with mobile browser compatibility
  */
 export function clearAllUsers(): void {
   try {
-    localStorage.removeItem(USERS_STORAGE_KEY);
+    const browserInfo = detectMobileBrowser();
+    
+    // Clear from localStorage
+    if (browserInfo.supportsLocalStorage) {
+      localStorage.removeItem(USERS_STORAGE_KEY);
+    }
+    
+    // Clear from sessionStorage
+    if (browserInfo.supportsSessionStorage) {
+      sessionStorage.removeItem(USERS_STORAGE_KEY);
+    }
   } catch (error) {
     console.error('Error clearing users:', error);
     throw new Error('Failed to clear user data');
@@ -449,6 +568,103 @@ export function clearAllUsers(): void {
  */
 export function getUserCount(): number {
   return getRegisteredUsers().length;
+}
+
+/**
+ * Check mobile browser compatibility and provide user-friendly error messages
+ */
+export function checkMobileCompatibility(): {
+  isCompatible: boolean;
+  issues: string[];
+  recommendations: string[];
+  errorMessage: string | null;
+} {
+  const browserInfo = detectMobileBrowser();
+  const compatibility = hasCompatibilityIssues();
+  
+  if (!compatibility.hasIssues) {
+    return {
+      isCompatible: true,
+      issues: [],
+      recommendations: [],
+      errorMessage: null
+    };
+  }
+  
+  // Generate user-friendly error message
+  let errorMessage = 'Your browser has some limitations:';
+  
+  if (browserInfo.isIOS && browserInfo.isSafari && browserInfo.isPrivateBrowsing) {
+    errorMessage = 'Private browsing mode detected. Some features may not work properly. Please use regular browsing mode for the best experience.';
+  } else if (browserInfo.isIOS && browserInfo.isSafari) {
+    errorMessage = 'iOS Safari detected. Storage is limited but the app should work. Consider using Chrome or Firefox for better performance.';
+  } else if (browserInfo.isAndroid && browserInfo.isChrome) {
+    errorMessage = 'Android Chrome detected. The app should work normally.';
+  } else if (browserInfo.isMobile) {
+    errorMessage = 'Mobile browser detected. Some features may be limited. Consider using a desktop browser for the best experience.';
+  }
+  
+  return {
+    isCompatible: true, // We'll try to work around issues
+    issues: compatibility.issues,
+    recommendations: compatibility.recommendations,
+    errorMessage
+  };
+}
+
+/**
+ * Get storage usage information for mobile browsers
+ */
+export function getStorageUsageInfo(): {
+  localStorageSize: number;
+  sessionStorageSize: number;
+  totalSize: number;
+  quota: number | null;
+  usagePercentage: number;
+} {
+  const browserInfo = detectMobileBrowser();
+  let localStorageSize = 0;
+  let sessionStorageSize = 0;
+  
+  try {
+    if (browserInfo.supportsLocalStorage) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) {
+          const value = localStorage.getItem(key);
+          if (value) {
+            localStorageSize += key.length + value.length;
+          }
+        }
+      }
+    }
+    
+    if (browserInfo.supportsSessionStorage) {
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key) {
+          const value = sessionStorage.getItem(key);
+          if (value) {
+            sessionStorageSize += key.length + value.length;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Error calculating storage usage:', error);
+  }
+  
+  const totalSize = localStorageSize + sessionStorageSize;
+  const quota = browserInfo.storageQuota;
+  const usagePercentage = quota ? (totalSize / quota) * 100 : 0;
+  
+  return {
+    localStorageSize,
+    sessionStorageSize,
+    totalSize,
+    quota,
+    usagePercentage
+  };
 }
 
 /**

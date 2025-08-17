@@ -2,7 +2,9 @@ import React, { createContext, useReducer, ReactNode, useEffect, useCallback, us
 import { appReducer, type AppState, type AppAction } from './appReducer';
 import { saveToStorage, loadFromStorage, isStorageAvailable, RobustStorage } from '../utils/storage';
 import { calculateProjectProgress, calculateGoalProgress } from '../utils/progress';
-import { getCurrentSessionUser, updateSessionActivity } from '../utils/auth';
+import { getCurrentSessionUser, updateSessionActivity, checkMobileCompatibility, getStorageUsageInfo } from '../utils/auth';
+import { detectMobileBrowser } from '../utils/mobileDetection';
+import { MobileCompatibilityState } from '../types';
 
 const initialState: AppState = {
   tasks: [],
@@ -209,6 +211,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // State to track if initial load is complete
   const [isInitialized, setIsInitialized] = useState(false);
   
+  // State to track mobile browser compatibility
+  const [mobileCompatibility, setMobileCompatibility] = useState<MobileCompatibilityState>(() => {
+    const browserInfo = detectMobileBrowser();
+    const compatibility = checkMobileCompatibility();
+    
+    // Log browser information for debugging
+    console.log('Browser Info:', browserInfo);
+    console.log('Compatibility:', compatibility);
+    
+    return {
+      browserInfo,
+      compatibility,
+      storageUsage: getStorageUsageInfo()
+    };
+  });
+  
   // Lazy initialization to load state from localStorage on first render
   const [state, dispatch] = useReducer(appReducer, initialState, () => {
     // Start with initial state, will be updated after async load
@@ -218,6 +236,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Load initial state asynchronously
   useEffect(() => {
     const loadInitialState = async () => {
+      // Check mobile browser compatibility first
+      const compatibility = checkMobileCompatibility();
+      if (compatibility.errorMessage) {
+        console.warn('Mobile compatibility warning:', compatibility.errorMessage);
+      }
+      
       // First, try to restore authentication state from session
       const sessionUser = getCurrentSessionUser();
       let restoredAuthState = initialState.authentication;
@@ -247,6 +271,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
         dispatch({ type: 'LOAD_USER_DATA', payload: basicState });
       }
+      
+      // Update mobile compatibility info
+      setMobileCompatibility(prev => ({
+        ...prev,
+        compatibility,
+        storageUsage: getStorageUsageInfo()
+      }));
       
       setIsInitialized(true);
     };
@@ -396,7 +427,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <AppContext.Provider value={{ 
+      state, 
+      dispatch,
+      mobileCompatibility 
+    }}>
       {children}
     </AppContext.Provider>
   );

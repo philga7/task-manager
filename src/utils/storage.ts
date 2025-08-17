@@ -1,4 +1,5 @@
 import { Task, Project, Goal, Analytics, UserSettings, AuthenticationState } from '../types';
+import { detectMobileBrowser, getRecommendedStorageStrategy } from './mobileDetection';
 
 // AppState interface matching the one in AppContext
 interface AppState {
@@ -115,59 +116,106 @@ export function deserializeState(data: string): AppState {
 }
 
 /**
- * Saves state to localStorage with comprehensive error handling
+ * Saves state to localStorage with comprehensive error handling and mobile browser compatibility
  */
 export function saveToStorage(key: string, state: AppState): void {
   try {
     const serializedData = serializeState(state);
+    const browserInfo = detectMobileBrowser();
+    const strategy = getRecommendedStorageStrategy();
     
-    // Check if data would exceed localStorage quota (typically 5-10MB)
+    // Check if data would exceed recommended size for current browser
     const dataSize = new Blob([serializedData]).size;
-    const maxSize = 5 * 1024 * 1024; // 5MB limit
     
-    if (dataSize > maxSize) {
-      throw new Error(`Data size (${(dataSize / 1024 / 1024).toFixed(2)}MB) exceeds localStorage limit`);
+    if (dataSize > strategy.maxDataSize) {
+      throw new Error(`Data size (${(dataSize / 1024 / 1024).toFixed(2)}MB) exceeds recommended limit for ${browserInfo.browserName} (${(strategy.maxDataSize / 1024 / 1024).toFixed(1)}MB)`);
     }
     
-    localStorage.setItem(key, serializedData);
+    // Use recommended storage strategy
+    if (strategy.primary === 'localStorage' && browserInfo.supportsLocalStorage) {
+      localStorage.setItem(key, serializedData);
+    } else if (strategy.primary === 'sessionStorage' && browserInfo.supportsSessionStorage) {
+      sessionStorage.setItem(key, serializedData);
+    } else {
+      // Fallback to first available storage method
+      if (browserInfo.supportsLocalStorage) {
+        localStorage.setItem(key, serializedData);
+      } else if (browserInfo.supportsSessionStorage) {
+        sessionStorage.setItem(key, serializedData);
+      } else {
+        throw new Error('No compatible storage method available');
+      }
+    }
+    
+    // Log storage strategy for debugging
+    console.log(`Saved to ${strategy.primary} using ${browserInfo.browserName} strategy`);
+    
   } catch (error) {
     if (error instanceof Error && error.name === 'QuotaExceededError') {
-      console.error('localStorage quota exceeded:', error);
+      console.error('Storage quota exceeded:', error);
       throw new Error('Storage limit exceeded. Please clear some data or use a different storage method.');
     } else if (error instanceof Error && error.message.includes('Data size')) {
-      console.error('Data too large for localStorage:', error);
+      console.error('Data too large for storage:', error);
       throw new Error('Application state is too large to save. Please reduce the amount of data.');
     } else {
-      console.error('Error saving to localStorage:', error);
+      console.error('Error saving to storage:', error);
       throw new Error('Failed to save application state to storage');
     }
   }
 }
 
 /**
- * Loads state from localStorage with error handling and fallback
+ * Loads state from storage with error handling and mobile browser compatibility
  */
 export function loadFromStorage(key: string): AppState | null {
   try {
-    const data = localStorage.getItem(key);
+    const browserInfo = detectMobileBrowser();
+    const strategy = getRecommendedStorageStrategy();
+    let data: string | null = null;
+    
+    // Try primary storage method first
+    if (strategy.primary === 'localStorage' && browserInfo.supportsLocalStorage) {
+      data = localStorage.getItem(key);
+    } else if (strategy.primary === 'sessionStorage' && browserInfo.supportsSessionStorage) {
+      data = sessionStorage.getItem(key);
+    }
+    
+    // If no data in primary storage, try fallbacks
+    if (!data) {
+      for (const fallback of strategy.fallbacks) {
+        if (fallback === 'localStorage' && browserInfo.supportsLocalStorage) {
+          data = localStorage.getItem(key);
+          if (data) break;
+        } else if (fallback === 'sessionStorage' && browserInfo.supportsSessionStorage) {
+          data = sessionStorage.getItem(key);
+          if (data) break;
+        }
+      }
+    }
     
     if (data === null) {
       return null; // No data found, not an error
     }
     
     if (data.trim() === '') {
-      console.warn('Empty data found in localStorage, returning null');
+      console.warn('Empty data found in storage, returning null');
       return null;
     }
     
     return deserializeState(data);
   } catch (error) {
-    console.error('Error loading from localStorage:', error);
+    console.error('Error loading from storage:', error);
     
     // If data is corrupted, clear it and return null
     try {
-      localStorage.removeItem(key);
-      console.warn('Corrupted data cleared from localStorage');
+      const browserInfo = detectMobileBrowser();
+      if (browserInfo.supportsLocalStorage) {
+        localStorage.removeItem(key);
+      }
+      if (browserInfo.supportsSessionStorage) {
+        sessionStorage.removeItem(key);
+      }
+      console.warn('Corrupted data cleared from storage');
     } catch (clearError) {
       console.error('Failed to clear corrupted data:', clearError);
     }
@@ -189,18 +237,32 @@ export function clearStorage(key: string): void {
 }
 
 /**
- * Checks if localStorage is available and working
+ * Checks if any storage method is available and working
  */
 export function isStorageAvailable(): boolean {
-  try {
-    const testKey = '__storage_test__';
-    localStorage.setItem(testKey, 'test');
-    localStorage.removeItem(testKey);
+  const browserInfo = detectMobileBrowser();
+  const strategy = getRecommendedStorageStrategy();
+  
+  // Check primary storage method
+  if (strategy.primary === 'localStorage' && browserInfo.supportsLocalStorage) {
     return true;
-  } catch (error) {
-    console.warn('localStorage is not available:', error);
-    return false;
   }
+  
+  if (strategy.primary === 'sessionStorage' && browserInfo.supportsSessionStorage) {
+    return true;
+  }
+  
+  // Check fallback methods
+  for (const fallback of strategy.fallbacks) {
+    if (fallback === 'localStorage' && browserInfo.supportsLocalStorage) {
+      return true;
+    }
+    if (fallback === 'sessionStorage' && browserInfo.supportsSessionStorage) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 /**
@@ -250,125 +312,179 @@ export class RobustStorage {
     INDEXED_DB: 'taskManagerDB'
   };
 
-  // Simple obfuscation (not encryption, just makes it harder to read)
+  // Mobile-compatible obfuscation (not encryption, just makes it harder to read)
   private static obfuscate(data: string): string {
-    return btoa(data + '_' + Date.now());
+    try {
+      // Use btoa if available, otherwise use simple encoding
+      if (typeof btoa !== 'undefined') {
+        return btoa(data + '_' + Date.now());
+      } else {
+        // Fallback for browsers without btoa
+        return encodeURIComponent(data + '_' + Date.now());
+      }
+    } catch (error) {
+      console.warn('btoa not available, using fallback encoding:', error);
+      return encodeURIComponent(data + '_' + Date.now());
+    }
   }
 
   private static deobfuscate(obfuscatedData: string): string | null {
     try {
-      const decoded = atob(obfuscatedData);
-      return decoded.split('_')[0];
-    } catch {
-      return null;
+      // Try btoa first
+      if (typeof atob !== 'undefined') {
+        const decoded = atob(obfuscatedData);
+        return decoded.split('_')[0];
+      } else {
+        // Fallback for browsers without atob
+        const decoded = decodeURIComponent(obfuscatedData);
+        return decoded.split('_')[0];
+      }
+    } catch (error) {
+      console.warn('atob not available, trying fallback decoding:', error);
+      try {
+        const decoded = decodeURIComponent(obfuscatedData);
+        return decoded.split('_')[0];
+      } catch {
+        return null;
+      }
     }
   }
 
-  // Try multiple storage mechanisms
+  // Try multiple storage mechanisms with mobile browser compatibility
   static async save(key: string, data: unknown): Promise<boolean> {
     const serializedData = JSON.stringify(data);
     const obfuscatedData = this.obfuscate(serializedData);
+    const browserInfo = detectMobileBrowser();
+    const strategy = getRecommendedStorageStrategy();
     
-    // Try localStorage first
+    // Check data size against recommended limits
+    const dataSize = new Blob([obfuscatedData]).size;
+    if (dataSize > strategy.maxDataSize) {
+      console.warn(`Data size (${(dataSize / 1024 / 1024).toFixed(2)}MB) exceeds recommended limit for ${browserInfo.browserName}`);
+    }
+    
+    // Try primary storage method first
     try {
-      if (isStorageAvailable()) {
+      if (strategy.primary === 'localStorage' && browserInfo.supportsLocalStorage) {
         localStorage.setItem(key, obfuscatedData);
-        
-        // Also save to sessionStorage as backup
+        console.log(`Saved to localStorage using ${browserInfo.browserName} strategy`);
+        return true;
+      } else if (strategy.primary === 'sessionStorage' && browserInfo.supportsSessionStorage) {
         sessionStorage.setItem(key, obfuscatedData);
-        
-        // Save to multiple localStorage keys for redundancy
-        localStorage.setItem(`${key}_backup`, obfuscatedData);
-        localStorage.setItem(`${key}_${Date.now()}`, obfuscatedData);
-        
+        console.log(`Saved to sessionStorage using ${browserInfo.browserName} strategy`);
         return true;
       }
     } catch (error) {
-      console.warn('localStorage save failed:', error);
+      console.warn(`${strategy.primary} save failed:`, error);
     }
 
-    // Try IndexedDB as fallback
-    try {
-      await this.saveToIndexedDB(key, obfuscatedData);
-      return true;
-    } catch (error) {
-      console.warn('IndexedDB save failed:', error);
+    // Try fallback storage methods
+    for (const fallback of strategy.fallbacks) {
+      try {
+        if (fallback === 'localStorage' && browserInfo.supportsLocalStorage) {
+          localStorage.setItem(key, obfuscatedData);
+          console.log(`Saved to localStorage fallback`);
+          return true;
+        } else if (fallback === 'sessionStorage' && browserInfo.supportsSessionStorage) {
+          sessionStorage.setItem(key, obfuscatedData);
+          console.log(`Saved to sessionStorage fallback`);
+          return true;
+        } else if (fallback === 'indexedDB' && browserInfo.supportsIndexedDB) {
+          await this.saveToIndexedDB(key, obfuscatedData);
+          console.log(`Saved to IndexedDB fallback`);
+          return true;
+        } else if (fallback === 'cookies' && browserInfo.supportsCookies) {
+          document.cookie = `${key}=${encodeURIComponent(obfuscatedData)}; max-age=31536000; path=/`;
+          console.log(`Saved to cookies fallback`);
+          return true;
+        }
+      } catch (error) {
+        console.warn(`${fallback} fallback save failed:`, error);
+      }
     }
 
-    // Try cookies as last resort
-    try {
-      document.cookie = `${key}=${encodeURIComponent(obfuscatedData)}; max-age=31536000; path=/`;
-      return true;
-    } catch (error) {
-      console.warn('Cookie save failed:', error);
-    }
-
+    console.error('All storage methods failed');
     return false;
   }
 
   static async load(key: string): Promise<unknown | null> {
-    // Try localStorage first
+    const browserInfo = detectMobileBrowser();
+    const strategy = getRecommendedStorageStrategy();
+    
+    // Try primary storage method first
     try {
-      if (isStorageAvailable()) {
+      if (strategy.primary === 'localStorage' && browserInfo.supportsLocalStorage) {
         const data = localStorage.getItem(key);
         if (data) {
           const deobfuscated = this.deobfuscate(data);
           if (deobfuscated) {
+            console.log(`Loaded from localStorage using ${browserInfo.browserName} strategy`);
             return JSON.parse(deobfuscated);
           }
         }
-
-        // Try backup key
-        const backupData = localStorage.getItem(`${key}_backup`);
-        if (backupData) {
-          const deobfuscated = this.deobfuscate(backupData);
+      } else if (strategy.primary === 'sessionStorage' && browserInfo.supportsSessionStorage) {
+        const data = sessionStorage.getItem(key);
+        if (data) {
+          const deobfuscated = this.deobfuscate(data);
           if (deobfuscated) {
-            return JSON.parse(deobfuscated);
-          }
-        }
-
-        // Try sessionStorage
-        const sessionData = sessionStorage.getItem(key);
-        if (sessionData) {
-          const deobfuscated = this.deobfuscate(sessionData);
-          if (deobfuscated) {
+            console.log(`Loaded from sessionStorage using ${browserInfo.browserName} strategy`);
             return JSON.parse(deobfuscated);
           }
         }
       }
     } catch (error) {
-      console.warn('localStorage load failed:', error);
+      console.warn(`${strategy.primary} load failed:`, error);
     }
 
-    // Try IndexedDB
-    try {
-      const indexedData = await this.loadFromIndexedDB(key);
-      if (indexedData) {
-        const deobfuscated = this.deobfuscate(indexedData);
-        if (deobfuscated) {
-          return JSON.parse(deobfuscated);
-        }
-      }
-    } catch (error) {
-      console.warn('IndexedDB load failed:', error);
-    }
-
-    // Try cookies
-    try {
-      const cookies = document.cookie.split(';');
-      for (const cookie of cookies) {
-        const [cookieKey, cookieValue] = cookie.trim().split('=');
-        if (cookieKey === key) {
-          const deobfuscated = this.deobfuscate(decodeURIComponent(cookieValue));
-          if (deobfuscated) {
-            return JSON.parse(deobfuscated);
+    // Try fallback storage methods
+    for (const fallback of strategy.fallbacks) {
+      try {
+        if (fallback === 'localStorage' && browserInfo.supportsLocalStorage) {
+          const data = localStorage.getItem(key);
+          if (data) {
+            const deobfuscated = this.deobfuscate(data);
+            if (deobfuscated) {
+              console.log(`Loaded from localStorage fallback`);
+              return JSON.parse(deobfuscated);
+            }
+          }
+        } else if (fallback === 'sessionStorage' && browserInfo.supportsSessionStorage) {
+          const data = sessionStorage.getItem(key);
+          if (data) {
+            const deobfuscated = this.deobfuscate(data);
+            if (deobfuscated) {
+              console.log(`Loaded from sessionStorage fallback`);
+              return JSON.parse(deobfuscated);
+            }
+          }
+        } else if (fallback === 'indexedDB' && browserInfo.supportsIndexedDB) {
+          const indexedData = await this.loadFromIndexedDB(key);
+          if (indexedData) {
+            const deobfuscated = this.deobfuscate(indexedData);
+            if (deobfuscated) {
+              console.log(`Loaded from IndexedDB fallback`);
+              return JSON.parse(deobfuscated);
+            }
+          }
+        } else if (fallback === 'cookies' && browserInfo.supportsCookies) {
+          const cookies = document.cookie.split(';');
+          for (const cookie of cookies) {
+            const [cookieKey, cookieValue] = cookie.trim().split('=');
+            if (cookieKey === key) {
+              const deobfuscated = this.deobfuscate(decodeURIComponent(cookieValue));
+              if (deobfuscated) {
+                console.log(`Loaded from cookies fallback`);
+                return JSON.parse(deobfuscated);
+              }
+            }
           }
         }
+      } catch (error) {
+        console.warn(`${fallback} fallback load failed:`, error);
       }
-    } catch (error) {
-      console.warn('Cookie load failed:', error);
     }
 
+    console.log('No data found in any storage method');
     return null;
   }
 
