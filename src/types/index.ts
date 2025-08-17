@@ -87,6 +87,47 @@ export interface AuthenticationState {
   isDemoMode: boolean;
 }
 
+// Mobile browser compatibility types
+export interface MobileBrowserInfo {
+  isMobile: boolean;
+  isIOS: boolean;
+  isAndroid: boolean;
+  isSafari: boolean;
+  isChrome: boolean;
+  isPrivateBrowsing: boolean;
+  browserName: string;
+  browserVersion: string;
+  osName: string;
+  osVersion: string;
+  supportsLocalStorage: boolean;
+  supportsSessionStorage: boolean;
+  supportsIndexedDB: boolean;
+  supportsCookies: boolean;
+  storageQuota: number | null;
+  hasStorageQuota: boolean;
+}
+
+export interface MobileCompatibilityInfo {
+  hasIssues: boolean;
+  issues: string[];
+  recommendations: string[];
+  errorMessage: string | null;
+}
+
+export interface StorageUsageInfo {
+  localStorageSize: number;
+  sessionStorageSize: number;
+  totalSize: number;
+  quota: number | null;
+  usagePercentage: number;
+}
+
+export interface MobileCompatibilityState {
+  browserInfo: MobileBrowserInfo;
+  compatibility: MobileCompatibilityInfo;
+  storageUsage: StorageUsageInfo;
+}
+
 // Utility types for progress calculation
 export interface ProgressCalculation {
   total: number;

@@ -6,6 +6,7 @@ import { ErrorBoundary } from './components/UI/ErrorBoundary';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Header } from './components/Layout/Header';
 import { ProtectedRoute } from './components/Auth/ProtectedRoute';
+import { MobileCompatibilityWarning } from './components/UI/MobileCompatibilityWarning';
 import { Dashboard } from './pages/Dashboard';
 import { Tasks } from './pages/Tasks';
 import { Projects } from './pages/Projects';
@@ -55,6 +56,7 @@ function App() {
                 </Routes>
               </main>
             </div>
+            <MobileCompatibilityWarning />
           </div>
         </Router>
       </AppProvider>
