@@ -5,7 +5,7 @@ import { useApp } from '../context/useApp';
 import { User, Bell, Palette, Shield, LogOut, LogIn, Play, AlertTriangle, Save, Upload, Database, Settings as SettingsIcon, Lock, TrendingUp, Clock, Target, Zap } from 'lucide-react';
 import { AuthModal } from '../components/Auth/AuthModal';
 import { DataRecovery } from '../utils/storage';
-import { authenticateUser, registerUser } from '../utils/auth';
+import { authenticateUser, registerUser, clearCorruptedStorage } from '../utils/auth';
 import { calculateRealTimeAnalytics, generateWeeklyProductivityData } from '../utils/progress';
 import { logger } from '../utils/logger';
 
@@ -195,6 +195,16 @@ export function Settings() {
     setAuthMode('register');
     setAuthError(undefined);
     setIsAuthModalOpen(true);
+  };
+
+
+
+  const handleClearCorruptedStorage = () => {
+    if (confirm('This will clear all corrupted storage data and reset the app. Are you sure?')) {
+      clearCorruptedStorage();
+      alert('Storage cleared. Please refresh the page.');
+      window.location.reload();
+    }
   };
 
   return (
@@ -565,10 +575,11 @@ export function Settings() {
                   <p className="text-xs text-stone-400 mb-3">
                     Export your data for backup or transfer to another device. This includes all your tasks, projects, and goals.
                   </p>
-                  <Button variant="secondary" size="sm" onClick={handleExportData}>
-                    <Save className="w-4 h-4 mr-2" />
-                    Export Data
-                  </Button>
+                                  <Button variant="secondary" size="sm" onClick={handleExportData}>
+                  <Save className="w-4 h-4 mr-2" />
+                  Export Data
+                </Button>
+
                 </div>
                 
                 {/* Data Import */}
@@ -586,11 +597,9 @@ export function Settings() {
                       id="import-file"
                     />
                     <label htmlFor="import-file">
-                      <Button variant="secondary" size="sm" asChild>
-                        <span>
-                          <Upload className="w-4 h-4 mr-2" />
-                          Import Data
-                        </span>
+                      <Button variant="secondary" size="sm">
+                        <Upload className="w-4 h-4 mr-2" />
+                        Import Data
                       </Button>
                     </label>
                   </div>
@@ -602,9 +611,19 @@ export function Settings() {
                   <p className="text-xs text-stone-400 mb-3">
                     Permanently delete all your data. This action cannot be undone.
                   </p>
-                  <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
-                    Clear All Data
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
+                      Clear All Data
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handleClearCorruptedStorage}
+                      className="text-amber-400 hover:text-amber-300"
+                    >
+                      Clear Corrupted Storage
+                    </Button>
+                  </div>
                 </div>
                 
                 {/* Storage Protection Info */}

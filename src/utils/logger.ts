@@ -21,9 +21,9 @@ const isProduction = import.meta.env.PROD;
 // Configuration based on environment
 const config: LogConfig = {
   ...defaultConfig,
-  level: isProduction ? 'error' : 'debug',
+  level: isProduction ? 'warn' : 'debug', // Allow warnings in production for debugging
   enableConsole: isDevelopment || (isProduction && defaultConfig.enableProductionLogs),
-  enableProductionLogs: false // Disable production logs by default for security
+  enableProductionLogs: true // Enable production logs for debugging
 };
 
 // Log level priorities
@@ -110,6 +110,10 @@ export const logStorage = {
 export const logAuth = {
   session: (action: string, userId?: string): void => {
     logger.info(`Session ${action}${userId ? ` for user: ${userId}` : ''}`);
+  },
+  
+  info: (message: string, ...args: unknown[]): void => {
+    logger.info(`Authentication: ${message}`, ...args);
   },
   
   error: (operation: string, error: unknown): void => {

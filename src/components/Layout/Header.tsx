@@ -74,6 +74,10 @@ export function Header({ onMenuClick }: HeaderProps) {
     setIsAuthModalOpen(true);
   };
 
+
+
+
+
   return (
     <>
       <header className="h-16 bg-stone-900 border-b border-stone-800 flex items-center justify-between px-6">
@@ -122,9 +126,10 @@ export function Header({ onMenuClick }: HeaderProps) {
 
           {/* Authentication Status */}
           {isAuthenticated && !isDemoMode && (
-            <div className="flex items-center space-x-2 px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-lg">
+            <div className="flex items-center space-x-2 px-2 sm:px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-lg">
               <Shield className="h-4 w-4 text-green-400" />
-              <span className="text-xs font-medium text-green-300">Authenticated</span>
+              <span className="hidden sm:inline text-xs font-medium text-green-300">Authenticated</span>
+              <span className="sm:hidden text-xs font-medium text-green-300">✓</span>
             </div>
           )}
 
@@ -133,21 +138,25 @@ export function Header({ onMenuClick }: HeaderProps) {
             {isAuthenticated ? (
               <div className="flex items-center space-x-3">
                 {/* User Avatar/Name */}
-                <div className="flex items-center space-x-2 px-3 py-1.5 bg-stone-800 border border-stone-700 rounded-lg">
+                <div className="flex items-center space-x-2 px-2 sm:px-3 py-1.5 bg-stone-800 border border-stone-700 rounded-lg">
                   <User className="h-4 w-4 text-stone-400" />
-                  <span className="text-sm text-stone-200 font-medium">
+                  <span className="hidden sm:inline text-sm text-stone-200 font-medium">
                     {state.authentication.user?.name || 'User'}
+                  </span>
+                  <span className="sm:hidden text-xs text-stone-200 font-medium">
+                    {state.authentication.user?.name?.split(' ')[0] || 'User'}
                   </span>
                 </div>
                 
                 {/* Logout Button */}
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   onClick={handleLogout}
-                  className="text-stone-400 hover:text-red-400"
+                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center space-x-1 px-2"
                 >
                   <LogOut className="h-4 w-4" />
+                  <span className="text-xs">Logout</span>
                 </Button>
               </div>
             ) : (
@@ -162,6 +171,9 @@ export function Header({ onMenuClick }: HeaderProps) {
                   <Play className="h-3 w-3 mr-1" />
                   Try Demo
                 </Button>
+                
+
+
                 
                 {/* Login Button */}
                 <Button

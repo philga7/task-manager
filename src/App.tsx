@@ -14,6 +14,7 @@ import { Goals } from './pages/Goals';
 import { Analytics } from './pages/Analytics';
 import { Settings } from './pages/Settings';
 
+
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
