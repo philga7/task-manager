@@ -12,6 +12,7 @@ interface AuthModalProps {
   isLoading?: boolean;
   error?: string;
   defaultMode?: AuthMode;
+  onClearError?: () => void;
 }
 
 export function AuthModal({ 
@@ -21,7 +22,8 @@ export function AuthModal({
   onRegister, 
   isLoading = false, 
   error,
-  defaultMode = 'login'
+  defaultMode = 'login',
+  onClearError
 }: AuthModalProps) {
   const [mode, setMode] = useState<AuthMode>(defaultMode);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -75,10 +77,18 @@ export function AuthModal({
 
   const handleSwitchToRegister = () => {
     setMode('register');
+    // Clear error when switching to register mode
+    if (onClearError) {
+      onClearError();
+    }
   };
 
   const handleSwitchToLogin = () => {
     setMode('login');
+    // Clear error when switching to login mode
+    if (onClearError) {
+      onClearError();
+    }
   };
 
   if (!isOpen) {

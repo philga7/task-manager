@@ -23,7 +23,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     setIsAuthLoading(true);
     
     try {
-      const user = authenticateUser(email, password);
+      const user = await authenticateUser(email, password);
       dispatch({ type: 'LOGIN', payload: user });
       setIsAuthModalOpen(false);
     } catch (error) {
@@ -38,7 +38,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     setIsAuthLoading(true);
     
     try {
-      const user = registerUser(email, password, name);
+      const user = await registerUser(email, password, name);
       dispatch({ type: 'LOGIN', payload: user });
       setIsAuthModalOpen(false);
     } catch (error) {
@@ -49,11 +49,23 @@ export function Header({ onMenuClick }: HeaderProps) {
   };
 
   const handleLogout = () => {
-    dispatch({ type: 'LOGOUT' });
+    if (isDemoMode) {
+      handleSwitchToAuth();
+    } else {
+      dispatch({ type: 'LOGOUT' });
+    }
   };
 
   const handleSwitchToDemo = () => {
     dispatch({ type: 'SWITCH_TO_DEMO' });
+  };
+
+  const handleSwitchToAuth = () => {
+    dispatch({ type: 'SWITCH_TO_AUTH' });
+    // Add a small delay to ensure session is cleared before refresh
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   };
 
   const openLoginModal = () => {
@@ -183,6 +195,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         defaultMode={authMode}
         isLoading={isAuthLoading}
         error={authError}
+        onClearError={() => setAuthError(undefined)}
       />
     </>
   );

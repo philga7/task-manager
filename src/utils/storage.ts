@@ -1,5 +1,6 @@
 import { Task, Project, Goal, Analytics, UserSettings, AuthenticationState } from '../types';
 import { detectMobileBrowser, getRecommendedStorageStrategy } from './mobileDetection';
+import { logStorage } from './logger';
 
 // AppState interface matching the one in AppContext
 interface AppState {
@@ -82,7 +83,7 @@ export function serializeState(state: AppState): string {
     const serializedState = serializeDates(state);
     return JSON.stringify(serializedState);
   } catch (error) {
-    console.error('Error serializing state:', error);
+    logStorage.error('serializing state', error);
     throw new Error('Failed to serialize application state');
   }
 }
@@ -110,7 +111,7 @@ export function deserializeState(data: string): AppState {
     
     return deserializedState as AppState;
   } catch (error) {
-    console.error('Error deserializing state:', error);
+    logStorage.error('deserializing state', error);
     throw new Error('Failed to deserialize application state - data may be corrupted');
   }
 }
@@ -148,17 +149,17 @@ export function saveToStorage(key: string, state: AppState): void {
     }
     
     // Log storage strategy for debugging
-    console.log(`Saved to ${strategy.primary} using ${browserInfo.browserName} strategy`);
+    logStorage.save(key, `${strategy.primary} using ${browserInfo.browserName} strategy`);
     
   } catch (error) {
     if (error instanceof Error && error.name === 'QuotaExceededError') {
-      console.error('Storage quota exceeded:', error);
+      logStorage.error('quota exceeded', error);
       throw new Error('Storage limit exceeded. Please clear some data or use a different storage method.');
     } else if (error instanceof Error && error.message.includes('Data size')) {
-      console.error('Data too large for storage:', error);
+      logStorage.error('data too large for storage', error);
       throw new Error('Application state is too large to save. Please reduce the amount of data.');
     } else {
-      console.error('Error saving to storage:', error);
+      logStorage.error('saving to storage', error);
       throw new Error('Failed to save application state to storage');
     }
   }
@@ -198,13 +199,13 @@ export function loadFromStorage(key: string): AppState | null {
     }
     
     if (data.trim() === '') {
-      console.warn('Empty data found in storage, returning null');
+      logStorage.warn('Empty data found in storage, returning null');
       return null;
     }
     
     return deserializeState(data);
   } catch (error) {
-    console.error('Error loading from storage:', error);
+    logStorage.error('loading from storage', error);
     
     // If data is corrupted, clear it and return null
     try {
@@ -215,9 +216,9 @@ export function loadFromStorage(key: string): AppState | null {
       if (browserInfo.supportsSessionStorage) {
         sessionStorage.removeItem(key);
       }
-      console.warn('Corrupted data cleared from storage');
+      logStorage.warn('Corrupted data cleared from storage');
     } catch (clearError) {
-      console.error('Failed to clear corrupted data:', clearError);
+      logStorage.error('Failed to clear corrupted data', clearError);
     }
     
     return null;
@@ -231,8 +232,42 @@ export function clearStorage(key: string): void {
   try {
     localStorage.removeItem(key);
   } catch (error) {
-    console.error('Error clearing storage:', error);
+    logStorage.error('clearing storage', error);
     throw new Error('Failed to clear storage data');
+  }
+}
+
+/**
+ * Debug function to check what demo-related data exists in storage
+ */
+export function debugDemoStorage(): void {
+  try {
+    const browserInfo = detectMobileBrowser();
+    console.log('=== Demo Storage Debug ===');
+    
+    if (browserInfo.supportsLocalStorage) {
+      console.log('localStorage keys:');
+      const localKeys = Object.keys(localStorage);
+      localKeys.forEach(key => {
+        if (key.includes('demo') || key.includes('task-manager')) {
+          console.log(`  ${key}:`, localStorage.getItem(key)?.substring(0, 100) + '...');
+        }
+      });
+    }
+    
+    if (browserInfo.supportsSessionStorage) {
+      console.log('sessionStorage keys:');
+      const sessionKeys = Object.keys(sessionStorage);
+      sessionKeys.forEach(key => {
+        if (key.includes('demo') || key.includes('task-manager')) {
+          console.log(`  ${key}:`, sessionStorage.getItem(key)?.substring(0, 100) + '...');
+        }
+      });
+    }
+    
+    console.log('=== End Debug ===');
+  } catch (error) {
+    console.error('Error debugging storage:', error);
   }
 }
 
@@ -244,6 +279,9 @@ export function clearDemoStorageData(): void {
   try {
     const browserInfo = detectMobileBrowser();
     
+    // Debug: Log what's in storage before clearing
+    debugDemoStorage();
+    
     // Clear demo storage key
     const demoStorageKey = 'task-manager-demo-state';
     
@@ -254,7 +292,7 @@ export function clearDemoStorageData(): void {
       // Also clear any backup or related demo keys
       const keys = Object.keys(localStorage);
       keys.forEach(key => {
-        if (key.includes('demo') || key.includes('task-manager-demo')) {
+        if (key.includes('demo') || key.includes('task-manager-demo') || key === 'task-manager-state') {
           localStorage.removeItem(key);
         }
       });
@@ -267,15 +305,51 @@ export function clearDemoStorageData(): void {
       // Also clear any backup or related demo keys
       const keys = Object.keys(sessionStorage);
       keys.forEach(key => {
-        if (key.includes('demo') || key.includes('task-manager-demo')) {
+        if (key.includes('demo') || key.includes('task-manager-demo') || key === 'task-manager-state') {
           sessionStorage.removeItem(key);
         }
       });
+      
+      // Clear session data that might be demo-related
+      const sessionKey = 'task_manager_session';
+      const sessionData = sessionStorage.getItem(sessionKey);
+      if (sessionData) {
+        try {
+          const session = JSON.parse(sessionData);
+          if (session.isDemoMode) {
+            sessionStorage.removeItem(sessionKey);
+          }
+        } catch {
+          // If session data is corrupted, remove it anyway
+          sessionStorage.removeItem(sessionKey);
+        }
+      }
     }
     
-    console.log('Demo storage data cleared successfully');
+    // Clear from IndexedDB if supported (synchronous approach)
+    if (browserInfo.supportsIndexedDB) {
+      try {
+        // Use synchronous approach for IndexedDB clearing
+        const request = indexedDB.open('taskManagerDB', 1);
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction(['data'], 'readwrite');
+          const store = transaction.objectStore('data');
+          store.delete('task-manager-demo-state');
+          store.delete('task-manager-state');
+        };
+      } catch {
+        // Ignore IndexedDB errors
+      }
+    }
+    
+    // Debug: Log what's in storage after clearing
+    console.log('=== After Clearing Demo Storage ===');
+    debugDemoStorage();
+    
+    logStorage.save('demo', 'cleared successfully');
   } catch (error) {
-    console.error('Error clearing demo storage data:', error);
+    logStorage.error('clearing demo storage data', error);
     // Don't throw error to prevent app crashes, just log it
   }
 }
@@ -320,7 +394,7 @@ export function getStorageSize(key: string): number {
     }
     return new Blob([data]).size;
   } catch (error) {
-    console.error('Error getting storage size:', error);
+    logStorage.error('getting storage size', error);
     return 0;
   }
 }
@@ -342,7 +416,7 @@ export function getTotalStorageSize(): number {
     }
     return totalSize;
   } catch (error) {
-    console.error('Error calculating total storage size:', error);
+    logStorage.error('calculating total storage size', error);
     return 0;
   }
 }

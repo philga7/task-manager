@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { getProjectProgressSummary, calculateMilestoneProgress } from '../utils/progress';
 import { validateMilestoneTaskConsistency } from '../utils/validation';
 import { Milestone, ValidationError } from '../types';
+import { logger } from '../utils/logger';
 
 export function Goals() {
   const { state, dispatch } = useApp();
@@ -176,7 +177,7 @@ export function Goals() {
       showSuccess(`Milestone "${milestone.title}" ${action} successfully!`);
 
     } catch (error) {
-      console.error('Error toggling milestone completion:', error);
+      logger.error('Error toggling milestone completion:', error);
       showError('Failed to update milestone. Please try again.');
     }
   };

@@ -10,6 +10,7 @@ import {
 import { X, Target, Calendar, Plus, Trash2 } from 'lucide-react';
 import { useApp } from '../../context/useApp';
 import { MilestoneTaskLinker } from './MilestoneTaskLinker';
+import { logger } from '../../utils/logger';
 
 interface GoalFormProps {
   onClose: () => void;
@@ -106,7 +107,7 @@ export function GoalForm({ onClose, goal }: GoalFormProps) {
       
       onClose();
     } catch (error) {
-      console.error('Error saving goal:', error);
+      logger.error('Error saving goal:', error);
       setValidationResult({
         isValid: false,
         errors: [{ field: 'submit', message: 'Failed to save goal. Please try again.', severity: 'error' }],

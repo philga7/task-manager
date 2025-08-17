@@ -4,7 +4,8 @@ import { saveToStorage, loadFromStorage, isStorageAvailable, RobustStorage } fro
 import { calculateProjectProgress, calculateGoalProgress } from '../utils/progress';
 import { getCurrentSessionUser, updateSessionActivity, checkMobileCompatibility, getStorageUsageInfo } from '../utils/auth';
 import { detectMobileBrowser } from '../utils/mobileDetection';
-import { MobileCompatibilityState } from '../types';
+import { MobileCompatibilityState, Task, Project, Goal, UserSettings, AuthenticationState } from '../types';
+import { logState, logBrowser, logAuth, logStorage, logProfile } from '../utils/logger';
 
 const initialState: AppState = {
   tasks: [],
@@ -155,12 +156,12 @@ function migrateState(savedState: LegacyState): AppState {
 async function loadStateFromStorage(authentication: AppState['authentication']): Promise<AppState | null> {
   try {
     const storageKey = getCurrentStorageKey(authentication);
-    console.log(`Attempting to load state from storage key: ${storageKey}`);
+    logState.load(storageKey);
 
     // Try robust storage first
     const savedState = await RobustStorage.load(storageKey);
     if (savedState) {
-      console.log(`Loaded state from robust storage key: ${storageKey}`);
+      logState.loaded(storageKey, 'robust');
       return migrateState(savedState);
     }
 
@@ -168,19 +169,19 @@ async function loadStateFromStorage(authentication: AppState['authentication']):
     if (isStorageAvailable()) {
       const simpleState = loadFromStorage(storageKey);
       if (simpleState) {
-        console.log(`Loaded state from simple storage key: ${storageKey}`);
+        logState.loaded(storageKey, 'simple');
         return migrateState(simpleState);
       }
     }
 
     // If no data found in current storage key, try legacy key for backward compatibility
     if (storageKey !== LEGACY_STORAGE_KEY) {
-      console.log('No data found in current storage key, trying legacy key for backward compatibility');
+      logState.load('legacy key for backward compatibility');
       
       // Try robust storage for legacy key
       const legacyState = await RobustStorage.load(LEGACY_STORAGE_KEY);
       if (legacyState) {
-        console.log('Loaded state from robust legacy storage key');
+        logState.loaded(LEGACY_STORAGE_KEY, 'robust legacy');
         return migrateState(legacyState);
       }
 
@@ -188,16 +189,16 @@ async function loadStateFromStorage(authentication: AppState['authentication']):
       if (isStorageAvailable()) {
         const simpleLegacyState = loadFromStorage(LEGACY_STORAGE_KEY);
         if (simpleLegacyState) {
-          console.log('Loaded state from simple legacy storage key');
+          logState.loaded(LEGACY_STORAGE_KEY, 'simple legacy');
           return migrateState(simpleLegacyState);
         }
       }
     }
 
-    console.log('No saved state found, using initial state');
+    logState.notFound();
     return null;
   } catch (error) {
-    console.error('Error loading state from storage:', error);
+    logState.error('loading', error);
     return null;
   }
 }
@@ -205,6 +206,7 @@ async function loadStateFromStorage(authentication: AppState['authentication']):
 export const AppContext = createContext<{
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
+  mobileCompatibility: MobileCompatibilityState;
 } | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -217,12 +219,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const compatibility = checkMobileCompatibility();
     
     // Log browser information for debugging
-    console.log('Browser Info:', browserInfo);
-    console.log('Compatibility:', compatibility);
+    logBrowser.info(browserInfo, compatibility);
     
     return {
       browserInfo,
-      compatibility,
+      compatibility: {
+        hasIssues: !compatibility.isCompatible,
+        issues: compatibility.issues,
+        recommendations: compatibility.recommendations,
+        errorMessage: compatibility.errorMessage
+      },
       storageUsage: getStorageUsageInfo()
     };
   });
@@ -239,7 +245,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Check mobile browser compatibility first
       const compatibility = checkMobileCompatibility();
       if (compatibility.errorMessage) {
-        console.warn('Mobile compatibility warning:', compatibility.errorMessage);
+        logBrowser.warning(compatibility.errorMessage);
       }
       
       // First, try to restore authentication state from session
@@ -247,7 +253,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       let restoredAuthState = initialState.authentication;
       
       if (sessionUser) {
-        console.log('Restoring authentication state from session:', sessionUser);
+        logAuth.session('restoring', sessionUser.id);
         restoredAuthState = {
           user: sessionUser,
           isAuthenticated: true,
@@ -275,7 +281,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Update mobile compatibility info
       setMobileCompatibility(prev => ({
         ...prev,
-        compatibility,
+        compatibility: {
+          hasIssues: !compatibility.isCompatible,
+          issues: compatibility.issues,
+          recommendations: compatibility.recommendations,
+          errorMessage: compatibility.errorMessage
+        },
         storageUsage: getStorageUsageInfo()
       }));
       
@@ -294,15 +305,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         (state.authentication.user.name !== state.userSettings.profile.name ||
          state.authentication.user.email !== state.userSettings.profile.email);
       
-      if (needsSync) {
-        console.log('Profile data mismatch detected, syncing...');
+      if (needsSync && state.authentication.user) {
+        logProfile.sync(state.authentication.user.name, state.authentication.user.email, state.userSettings.profile);
         dispatch({ type: 'SYNC_PROFILE_DATA' });
       }
     }
-  }, [isInitialized, state.authentication, state.userSettings.profile.name, state.userSettings.profile.email, dispatch]);
+  }, [isInitialized, state.authentication, state.userSettings.profile, dispatch]);
 
   // Ref to store the debounce timeout
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounced save function with robust storage
   const debouncedSave = useCallback((currentState: AppState) => {
@@ -319,25 +330,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Try robust storage first, fallback to simple storage
         const success = await RobustStorage.save(storageKey, currentState);
         if (success) {
-          console.log(`State saved to robust storage key: ${storageKey}`);
+          logStorage.save(storageKey, 'robust');
         } else {
-          console.warn('Robust storage failed, falling back to simple storage');
+          logStorage.warn('Robust storage failed, falling back to simple storage');
           if (isStorageAvailable()) {
             saveToStorage(storageKey, currentState);
-            console.log(`State saved to simple storage key: ${storageKey}`);
+            logStorage.save(storageKey, 'simple');
           }
         }
       } catch (error) {
-        console.error('Error saving state to storage:', error);
+        logStorage.error('saving', error);
         // Fallback to simple storage
         try {
           if (isStorageAvailable()) {
             const storageKey = getCurrentStorageKey(currentState.authentication);
             saveToStorage(storageKey, currentState);
-            console.log(`State saved to fallback storage key: ${storageKey}`);
+            logStorage.save(storageKey, 'fallback');
           }
         } catch (fallbackError) {
-          console.error('Fallback storage also failed:', fallbackError);
+          logStorage.error('fallback', fallbackError);
         }
       }
     }, DEBOUNCE_DELAY);
@@ -363,7 +374,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       prevAuth.user?.id !== authentication.user?.id;
     
     if (authChanged && (authentication.isAuthenticated || authentication.isDemoMode)) {
-      console.log('Authentication state changed, loading user data...');
+      logState.authChange();
       
       const loadUserData = async () => {
         const loadedState = await loadStateFromStorage(authentication);
