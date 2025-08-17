@@ -237,6 +237,50 @@ export function clearStorage(key: string): void {
 }
 
 /**
+ * Clears all demo-related storage data
+ * This function removes demo data from localStorage to prevent data leakage between users
+ */
+export function clearDemoStorageData(): void {
+  try {
+    const browserInfo = detectMobileBrowser();
+    
+    // Clear demo storage key
+    const demoStorageKey = 'task-manager-demo-state';
+    
+    // Clear from localStorage
+    if (browserInfo.supportsLocalStorage) {
+      localStorage.removeItem(demoStorageKey);
+      
+      // Also clear any backup or related demo keys
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.includes('demo') || key.includes('task-manager-demo')) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+    
+    // Clear from sessionStorage
+    if (browserInfo.supportsSessionStorage) {
+      sessionStorage.removeItem(demoStorageKey);
+      
+      // Also clear any backup or related demo keys
+      const keys = Object.keys(sessionStorage);
+      keys.forEach(key => {
+        if (key.includes('demo') || key.includes('task-manager-demo')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+    }
+    
+    console.log('Demo storage data cleared successfully');
+  } catch (error) {
+    console.error('Error clearing demo storage data:', error);
+    // Don't throw error to prevent app crashes, just log it
+  }
+}
+
+/**
  * Checks if any storage method is available and working
  */
 export function isStorageAvailable(): boolean {
