@@ -1,7 +1,7 @@
 import { Task, Project, Goal, Milestone, UserSettings, User, AuthenticationState } from '../types';
 import { calculateProjectProgress, calculateGoalProgress } from '../utils/progress';
 import { validateTaskData, validateGoalData, validateMilestoneTaskAssociation, validateMilestoneTaskConsistency } from '../utils/validation';
-import { createSession, clearCurrentSession } from '../utils/auth';
+import { createSession, clearCurrentSession, saveAuthState, clearAuthState } from '../utils/auth';
 import { clearDemoStorageData } from '../utils/storage';
 import { logValidation, logMilestone, logProfile } from '../utils/logger';
 
@@ -46,6 +46,7 @@ type AppAction =
   | { type: 'LOGOUT' }
   | { type: 'SWITCH_TO_DEMO' }
   | { type: 'SWITCH_TO_AUTH' }
+  | { type: 'RESTORE_AUTH'; payload: { user: User | null; isAuthenticated: boolean; isDemoMode: boolean } }
   | { type: 'LOAD_USER_DATA'; payload: AppState }
   | { type: 'SYNC_PROFILE_DATA' };
 
@@ -440,9 +441,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           }
         }
       };
-    case 'LOGIN':
+    case 'LOGIN': {
       // Create session for the logged-in user
       createSession(action.payload, false);
+      
+      const loginAuthState = {
+        user: action.payload,
+        isAuthenticated: true,
+        isDemoMode: false
+      };
+      
+      // Save authentication state for persistence
+      saveAuthState(loginAuthState);
       
       return {
         ...state,
@@ -461,9 +471,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           }
         }
       };
-    case 'LOGOUT':
-      // Clear session data
+    }
+    case 'LOGOUT': {
+      // Clear session data and auth state
       clearCurrentSession();
+      clearAuthState();
       
       // If user was in demo mode, also clear demo storage data
       if (state.authentication.isDemoMode) {
@@ -479,6 +491,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           user: null
         }
       };
+    }
     case 'SWITCH_TO_DEMO': {
       // Clear any existing demo data to ensure clean demo session
       clearDemoStorageData();
@@ -491,6 +504,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         createdAt: new Date()
       };
       createSession(demoUser, true);
+      
+      const demoAuthState = {
+        user: demoUser,
+        isAuthenticated: true,
+        isDemoMode: true
+      };
+      
+      // Save authentication state for persistence
+      saveAuthState(demoAuthState);
       
       return {
         ...state,
@@ -510,9 +532,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         }
       };
     }
-    case 'SWITCH_TO_AUTH':
-      // Clear demo session
+    case 'SWITCH_TO_AUTH': {
+      // Clear demo session and auth state
       clearCurrentSession();
+      clearAuthState();
       
       // Clear all demo storage data to prevent data leakage
       clearDemoStorageData();
@@ -547,6 +570,25 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           isAuthenticated: false,
           isDemoMode: false,
           user: null
+        }
+      };
+    }
+    case 'RESTORE_AUTH':
+      return {
+        ...state,
+        authentication: {
+          ...state.authentication,
+          user: action.payload.user,
+          isAuthenticated: action.payload.isAuthenticated,
+          isDemoMode: action.payload.isDemoMode
+        },
+        userSettings: {
+          ...state.userSettings,
+          profile: {
+            ...state.userSettings.profile,
+            name: action.payload.user?.name || state.userSettings.profile.name,
+            email: action.payload.user?.email || state.userSettings.profile.email
+          }
         }
       };
     case 'LOAD_USER_DATA':

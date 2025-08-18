@@ -2,7 +2,7 @@ import React, { createContext, useReducer, ReactNode, useEffect, useCallback, us
 import { appReducer, type AppState, type AppAction } from './appReducer';
 import { saveToStorage, loadFromStorage, isStorageAvailable, RobustStorage } from '../utils/storage';
 import { calculateProjectProgress, calculateGoalProgress } from '../utils/progress';
-import { getCurrentSessionUser, updateSessionActivity, checkMobileCompatibility, getStorageUsageInfo } from '../utils/auth';
+import { updateSessionActivity, checkMobileCompatibility, getStorageUsageInfo, restoreAuthState } from '../utils/auth';
 import { detectMobileBrowser } from '../utils/mobileDetection';
 import { MobileCompatibilityState, Task, Project, Goal, UserSettings, AuthenticationState } from '../types';
 import { logState, logBrowser, logAuth, logStorage, logProfile } from '../utils/logger';
@@ -248,32 +248,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
         logBrowser.warning(compatibility.errorMessage);
       }
       
-      // First, try to restore authentication state from session
-      const sessionUser = getCurrentSessionUser();
-      let restoredAuthState = initialState.authentication;
+      // Restore authentication state from storage
+      const restoredAuth = restoreAuthState();
+      let currentAuthState = initialState.authentication;
       
-      if (sessionUser) {
-        logAuth.session('restoring', sessionUser.id);
-        restoredAuthState = {
-          user: sessionUser,
-          isAuthenticated: true,
-          isDemoMode: sessionUser.id === 'demo-user-id'
-        };
+      if (restoredAuth) {
+        logAuth.info('Restored authentication state', restoredAuth);
+        currentAuthState = restoredAuth;
+        
+        // Dispatch the restored authentication state
+        dispatch({ type: 'RESTORE_AUTH', payload: restoredAuth });
       }
       
       // Then load user data from storage
-      const loadedState = await loadStateFromStorage(restoredAuthState);
+      const loadedState = await loadStateFromStorage(currentAuthState);
       if (loadedState) {
-        // If we have a session user, ensure the loaded state includes the authentication info
-        if (sessionUser) {
-          loadedState.authentication = restoredAuthState;
-        }
+        // Ensure the loaded state includes the current authentication info
+        loadedState.authentication = currentAuthState;
         dispatch({ type: 'LOAD_USER_DATA', payload: loadedState });
-      } else if (sessionUser) {
-        // If no loaded state but we have a session user, create a basic state
+      } else if (restoredAuth) {
+        // If no loaded state but we have restored auth, create a basic state
         const basicState = {
           ...initialState,
-          authentication: restoredAuthState
+          authentication: currentAuthState
         };
         dispatch({ type: 'LOAD_USER_DATA', payload: basicState });
       }

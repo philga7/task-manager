@@ -883,3 +883,158 @@ export function validateUserSession(userId: string): boolean {
   const users = getRegisteredUsers();
   return users.some(user => user.id === userId);
 }
+
+/**
+ * Validate stored authentication data
+ */
+function isValidAuthData(authData: unknown): boolean {
+  try {
+    // Check if authData has the required structure
+    if (!authData || typeof authData !== 'object') {
+      return false;
+    }
+    
+    const auth = authData as Record<string, unknown>;
+    
+    // Check for required authentication properties
+    if (typeof auth.isAuthenticated !== 'boolean') {
+      return false;
+    }
+    
+    // If authenticated, user object must exist and be valid
+    if (auth.isAuthenticated) {
+      if (!auth.user || typeof auth.user !== 'object') {
+        return false;
+      }
+      
+      const user = auth.user as Record<string, unknown>;
+      
+      // Validate user object properties
+      if (!user.id || !user.email || !user.name) {
+        return false;
+      }
+      
+      // Check if user still exists in storage (for non-demo users)
+      if (!auth.isDemoMode && !validateUserSession(user.id as string)) {
+        return false;
+      }
+    }
+    
+    // Check demo mode flag
+    if (typeof auth.isDemoMode !== 'boolean') {
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    logAuth.error('Error validating auth data', error);
+    return false;
+  }
+}
+
+/**
+ * Restore authentication state from storage
+ */
+export function restoreAuthState(): {
+  user: User | null;
+  isAuthenticated: boolean;
+  isDemoMode: boolean;
+} | null {
+  try {
+    // First try to get session data
+    const session = getSession();
+    
+    if (session && isSessionValid(session)) {
+      logAuth.session('restoring from session', session.userId);
+      
+      // For demo mode, return demo user
+      if (session.isDemoMode) {
+        return {
+          user: {
+            id: session.userId,
+            email: session.email,
+            name: session.name,
+            createdAt: new Date(session.loginTime)
+          },
+          isAuthenticated: true,
+          isDemoMode: true
+        };
+      }
+      
+      // For regular users, validate that user still exists
+      if (validateUserSession(session.userId)) {
+        return {
+          user: {
+            id: session.userId,
+            email: session.email,
+            name: session.name,
+            createdAt: new Date(session.loginTime)
+          },
+          isAuthenticated: true,
+          isDemoMode: false
+        };
+      } else {
+        logAuth.session('user no longer exists, clearing session', session.userId);
+        clearSession();
+        return null;
+      }
+    }
+    
+    // If no valid session, try to restore from localStorage as fallback
+    const storedAuth = localStorage.getItem('task_manager_auth_state');
+    if (storedAuth) {
+      try {
+        const authData = JSON.parse(storedAuth);
+        if (isValidAuthData(authData)) {
+          logAuth.info('Restored auth state from localStorage');
+          return authData;
+        } else {
+          logAuth.warn('Invalid auth data found in localStorage, clearing');
+          localStorage.removeItem('task_manager_auth_state');
+        }
+      } catch (error) {
+        logAuth.error('Error parsing stored auth data', error);
+        localStorage.removeItem('task_manager_auth_state');
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    logAuth.error('Error restoring auth state', error);
+    return null;
+  }
+}
+
+/**
+ * Save authentication state to storage for persistence
+ */
+export function saveAuthState(authState: {
+  user: User | null;
+  isAuthenticated: boolean;
+  isDemoMode: boolean;
+}): void {
+  try {
+    // Save to localStorage as backup
+    localStorage.setItem('task_manager_auth_state', JSON.stringify(authState));
+    logAuth.info('Saved auth state to localStorage');
+  } catch (error) {
+    logAuth.error('Error saving auth state to localStorage', error);
+  }
+}
+
+/**
+ * Clear authentication state from storage
+ */
+export function clearAuthState(): void {
+  try {
+    // Clear session data
+    clearSession();
+    
+    // Clear localStorage auth state
+    localStorage.removeItem('task_manager_auth_state');
+    
+    logAuth.info('Cleared auth state from storage');
+  } catch (error) {
+    logAuth.error('Error clearing auth state', error);
+  }
+}
