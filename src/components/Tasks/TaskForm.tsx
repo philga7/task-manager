@@ -10,13 +10,33 @@ interface TaskFormProps {
   task?: Task;
 }
 
+// Helper function to safely format due date for form input
+const formatDueDate = (dueDate: Date | string | undefined): string => {
+  if (!dueDate) return '';
+  
+  // If it's already a Date object
+  if (dueDate instanceof Date) {
+    return dueDate.toISOString().split('T')[0];
+  }
+  
+  // If it's a string, try to convert to Date
+  if (typeof dueDate === 'string') {
+    const dateObj = new Date(dueDate);
+    if (!isNaN(dateObj.getTime())) {
+      return dateObj.toISOString().split('T')[0];
+    }
+  }
+  
+  return '';
+};
+
 export function TaskForm({ onClose, task }: TaskFormProps) {
   const { state, dispatch } = useApp();
   const [formData, setFormData] = useState({
     title: task?.title || '',
     description: task?.description || '',
     priority: task?.priority || 'medium' as 'low' | 'medium' | 'high',
-    dueDate: task?.dueDate ? task.dueDate.toISOString().split('T')[0] : '',
+    dueDate: formatDueDate(task?.dueDate),
     projectId: task?.projectId || '',
     tags: task?.tags.join(', ') || ''
   });
