@@ -17,12 +17,32 @@ interface GoalFormProps {
   goal?: Goal;
 }
 
+// Helper function to safely format target date for form input
+const formatTargetDate = (targetDate: Date | string | undefined): string => {
+  if (!targetDate) return '';
+  
+  // If it's already a Date object
+  if (targetDate instanceof Date) {
+    return targetDate.toISOString().split('T')[0];
+  }
+  
+  // If it's a string, try to convert to Date
+  if (typeof targetDate === 'string') {
+    const dateObj = new Date(targetDate);
+    if (!isNaN(dateObj.getTime())) {
+      return dateObj.toISOString().split('T')[0];
+    }
+  }
+  
+  return '';
+};
+
 export function GoalForm({ onClose, goal }: GoalFormProps) {
   const { state, dispatch } = useApp();
   const [formData, setFormData] = useState({
     title: goal?.title || '',
     description: goal?.description || '',
-    targetDate: goal?.targetDate ? goal.targetDate.toISOString().split('T')[0] : '',
+    targetDate: formatTargetDate(goal?.targetDate),
     progress: goal?.progress || 0
   });
   const [validationResult, setValidationResult] = useState<ValidationResult>({ isValid: true, errors: [], warnings: [] });
@@ -51,6 +71,7 @@ export function GoalForm({ onClose, goal }: GoalFormProps) {
       description: formData.description,
       targetDate: new Date(formData.targetDate || new Date()),
       progress: formData.progress,
+      projects: goal?.projects || [],
       milestones: milestones
         .filter(m => m.title.trim())
         .map((m, index) => ({
@@ -86,6 +107,7 @@ export function GoalForm({ onClose, goal }: GoalFormProps) {
         description: formData.description,
         targetDate: new Date(formData.targetDate),
         progress: formData.progress,
+        projects: goal?.projects || [],
         milestones: milestones
           .filter(m => m.title.trim())
           .map((m, index) => ({
