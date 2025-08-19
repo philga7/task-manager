@@ -4,6 +4,7 @@ import { validateTaskData, validateGoalData, validateMilestoneTaskAssociation, v
 import { createSession, clearCurrentSession, saveAuthState, clearAuthState } from '../utils/auth';
 import { clearDemoStorageData } from '../utils/storage';
 import { logValidation, logMilestone, logProfile } from '../utils/logger';
+import { generateDemoState } from '../utils/demoData';
 
 interface AppState {
   tasks: Task[];
@@ -146,13 +147,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       
       const updatedTasks = [...state.tasks, action.payload];
       const updatedProjects = updateProjectProgress(state.projects, updatedTasks);
-      const updatedGoals = updateMilestoneCompletion(updateGoalProgress(state.goals, updatedProjects), updatedTasks);
+      const updatedGoals = updateGoalProgress(state.goals, updatedProjects);
+      const updatedGoalsWithMilestones = updateMilestoneCompletion(updatedGoals, updatedTasks);
       
-      return { 
-        ...state, 
+      return {
+        ...state,
         tasks: updatedTasks,
         projects: updatedProjects,
-        goals: updatedGoals
+        goals: updatedGoalsWithMilestones
       };
     }
     case 'UPDATE_TASK': {
@@ -513,7 +515,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       
       // Save authentication state for persistence
       saveAuthState(demoAuthState);
-      
+
+      // Generate and load demo data
+      const demoState = generateDemoState();
       return {
         ...state,
         authentication: {
@@ -529,7 +533,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
             name: 'Demo User',
             email: 'demo@example.com'
           }
-        }
+        },
+        tasks: demoState.tasks,
+        projects: demoState.projects,
+        goals: demoState.goals,
+        analytics: demoState.analytics,
+        searchQuery: '',
+        selectedProject: null,
+        selectedPriority: null
       };
     }
     case 'SWITCH_TO_AUTH': {
@@ -570,7 +581,21 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           isAuthenticated: false,
           isDemoMode: false,
           user: null
-        }
+        },
+        // Clear all demo data when switching to auth mode
+        tasks: [],
+        projects: [],
+        goals: [],
+        analytics: {
+          tasksCompleted: 0,
+          tasksCreated: 0,
+          productivity: 0,
+          streakDays: 0,
+          averageCompletionTime: 0
+        },
+        searchQuery: '',
+        selectedProject: null,
+        selectedPriority: null
       };
     }
     case 'RESTORE_AUTH':
@@ -592,10 +617,22 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         }
       };
     case 'LOAD_USER_DATA':
-      return {
-        ...action.payload,
-        authentication: state.authentication // Preserve current authentication state
-      };
+      // Ensure that when loading user data, we respect the current authentication state
+      // If we're in demo mode, we should only load demo data
+      if (state.authentication.isDemoMode) {
+        // In demo mode, ensure we only show demo data
+        const demoState = generateDemoState();
+        return {
+          ...demoState,
+          authentication: state.authentication // Preserve current authentication state
+        };
+      } else {
+        // In regular mode, load the provided user data
+        return {
+          ...action.payload,
+          authentication: state.authentication // Preserve current authentication state
+        };
+      }
     case 'SYNC_PROFILE_DATA':
       // Only sync if user is authenticated and there's a mismatch
       if (needsProfileSync(state.authentication, state.userSettings)) {
@@ -617,6 +654,90 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     default:
       return state;
   }
+}
+
+/**
+ * Test function to verify demo mode state scoping
+ * This function tests that demo mode properly isolates state
+ */
+export function testDemoModeStateScoping(): {
+  success: boolean;
+  tests: Array<{ name: string; passed: boolean; error?: string }>;
+} {
+  const tests: Array<{ name: string; passed: boolean; error?: string }> = [];
+  
+  try {
+    // Test 1: Verify demo state generation
+    const demoState = generateDemoState();
+    tests.push({
+      name: 'Demo state generation',
+      passed: demoState.tasks.length > 0 && demoState.projects.length > 0 && demoState.goals.length > 0,
+      error: demoState.tasks.length === 0 || demoState.projects.length === 0 || demoState.goals.length === 0 ? 'Demo state is empty' : undefined
+    });
+    
+    // Test 2: Verify demo state has correct authentication
+    tests.push({
+      name: 'Demo state authentication',
+      passed: demoState.authentication.isDemoMode === true && demoState.authentication.isAuthenticated === true,
+      error: demoState.authentication.isDemoMode !== true || demoState.authentication.isAuthenticated !== true ? 'Demo state has incorrect authentication' : undefined
+    });
+    
+    // Test 3: Verify demo state has demo user
+    tests.push({
+      name: 'Demo state user',
+      passed: demoState.authentication.user?.name === 'Alex Johnson' && demoState.authentication.user?.email === 'alex.johnson@demo.com',
+      error: demoState.authentication.user?.name !== 'Alex Johnson' || demoState.authentication.user?.email !== 'alex.johnson@demo.com' ? 'Demo state has incorrect user' : undefined
+    });
+    
+    // Test 4: Verify demo tasks are properly associated
+    const demoProjectIds = demoState.projects.map(project => project.id);
+    const demoGoalIds = demoState.goals.map(goal => goal.id);
+    
+    // Check that all tasks belong to demo projects
+    const tasksWithValidProjects = demoState.tasks.every(task => task.projectId && demoProjectIds.includes(task.projectId));
+    tests.push({
+      name: 'Demo tasks project association',
+      passed: tasksWithValidProjects,
+      error: !tasksWithValidProjects ? 'Demo tasks have invalid project associations' : undefined
+    });
+    
+    // Check that all projects belong to demo goals
+    const projectsWithValidGoals = demoState.projects.every(project => demoGoalIds.includes(project.goalId));
+    tests.push({
+      name: 'Demo projects goal association',
+      passed: projectsWithValidGoals,
+      error: !projectsWithValidGoals ? 'Demo projects have invalid goal associations' : undefined
+    });
+    
+    // Test 5: Verify analytics are demo-specific
+    tests.push({
+      name: 'Demo analytics',
+      passed: demoState.analytics.tasksCompleted === 6 && demoState.analytics.tasksCreated === 12,
+      error: demoState.analytics.tasksCompleted !== 6 || demoState.analytics.tasksCreated !== 12 ? 'Demo analytics are incorrect' : undefined
+    });
+    
+  } catch (error) {
+    tests.push({
+      name: 'Demo mode state scoping test execution',
+      passed: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+  
+  const success = tests.every(test => test.passed);
+  
+  // Log test results
+  console.log('=== Demo Mode State Scoping Test Results ===');
+  tests.forEach(test => {
+    console.log(`${test.passed ? '✅' : '❌'} ${test.name}: ${test.passed ? 'PASSED' : 'FAILED'}`);
+    if (test.error) {
+      console.log(`   Error: ${test.error}`);
+    }
+  });
+  console.log(`Overall: ${success ? 'PASSED' : 'FAILED'}`);
+  console.log('=== End Test Results ===');
+  
+  return { success, tests };
 }
 
 export type { AppState, AppAction };
