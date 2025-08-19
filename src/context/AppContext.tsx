@@ -1,6 +1,6 @@
 import React, { createContext, useReducer, ReactNode, useEffect, useCallback, useRef, useState } from 'react';
 import { appReducer, type AppState, type AppAction } from './appReducer';
-import { saveToStorage, loadFromStorage, isStorageAvailable, RobustStorage } from '../utils/storage';
+import { saveToStorage, loadFromStorage, isStorageAvailable, RobustStorage, performDemoMigration } from '../utils/storage';
 import { calculateProjectProgress, calculateGoalProgress } from '../utils/progress';
 import { updateSessionActivity, checkMobileCompatibility, getStorageUsageInfo, restoreAuthState } from '../utils/auth';
 import { detectMobileBrowser } from '../utils/mobileDetection';
@@ -258,6 +258,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         
         // Dispatch the restored authentication state
         dispatch({ type: 'RESTORE_AUTH', payload: restoredAuth });
+      }
+      
+      // Perform demo migration if in demo mode
+      if (currentAuthState.isDemoMode) {
+        logAuth.info('Demo mode detected, performing migration');
+        const migrationResult = performDemoMigration();
+        logAuth.info('Demo migration result', migrationResult);
       }
       
       // Then load user data from storage
