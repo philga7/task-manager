@@ -132,10 +132,51 @@ src/
 
 ### Vercel Deployment
 - Connect GitHub repository to Vercel
-- Automatic deployment on push to main branch
+- Automatic deployment on push to main branch and releases
 - Framework preset: Vite
 - Build command: `npm run build`
 - Output directory: `dist`
+
+### Automated Releases
+This project uses semantic-release for automated versioning and releases. The system automatically:
+- Analyzes commit messages to determine version bumps
+- Generates changelogs and release notes
+- Creates GitHub releases with proper tagging
+- Triggers deployments on release publication
+
+#### Commit Message Format
+We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+**Types:**
+- `feat`: New features (minor version bump)
+- `fix`: Bug fixes (patch version bump)
+- `docs`: Documentation changes (patch version bump)
+- `style`: Code style changes (patch version bump)
+- `refactor`: Code refactoring (patch version bump)
+- `perf`: Performance improvements (patch version bump)
+- `test`: Adding or updating tests (patch version bump)
+- `build`: Build system changes (patch version bump)
+- `ci`: CI/CD changes (patch version bump)
+- `chore`: Maintenance tasks (patch version bump)
+- `revert`: Reverting previous commits (patch version bump)
+
+**Examples:**
+```
+feat: add user authentication system
+fix(auth): resolve login validation issue
+docs: update API documentation
+feat(ui): add dark mode toggle
+
+BREAKING CHANGE: API response format has changed
+```
 
 ## 🤝 Contributing
 
