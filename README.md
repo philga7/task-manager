@@ -178,6 +178,9 @@ feat(ui): add dark mode toggle
 BREAKING CHANGE: API response format has changed
 ```
 
+**Commit Template:**
+This project includes a git commit message template (`.gitmessage`) that will automatically show the conventional commit format when you run `git commit` without the `-m` flag. The template is automatically configured when you clone the repository.
+
 ## 🤝 Contributing
 
 1. Fork the repository

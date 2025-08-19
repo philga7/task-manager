@@ -1,0 +1,38 @@
+# Conventional Commits Template
+# 
+# Follow the Conventional Commits specification: https://www.conventionalcommits.org/
+# 
+# Format: <type>[optional scope]: <description>
+# 
+# Types:
+#   feat     (minor) - A new feature
+#   fix      (patch) - A bug fix
+#   docs     (patch) - Documentation only changes
+#   style    (patch) - Changes that do not affect the meaning of the code
+#   refactor (patch) - A code change that neither fixes a bug nor adds a feature
+#   perf     (patch) - A code change that improves performance
+#   test     (patch) - Adding missing tests or correcting existing tests
+#   build    (patch) - Changes that affect the build system or external dependencies
+#   ci       (patch) - Changes to CI configuration files and scripts
+#   chore    (patch) - Other changes that don't modify src or test files
+#   revert   (patch) - Reverts a previous commit
+# 
+# Breaking Changes:
+#   Add "BREAKING CHANGE:" in the footer to indicate a breaking change
+#   This will trigger a major version bump
+# 
+# Examples:
+#   feat: add user authentication system
+#   fix(auth): resolve login validation issue
+#   docs: update API documentation
+#   feat(ui): add dark mode toggle
+#   fix: resolve navigation bug in mobile view
+# 
+# Breaking change example:
+#   feat: change API response format
+#   
+#   BREAKING CHANGE: API now returns data in a different structure
+# 
+
+# Your commit message below:
+# 
