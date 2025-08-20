@@ -2,7 +2,7 @@ import React from 'react';
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
-import { ErrorBoundary } from './components/UI/ErrorBoundary';
+import { ErrorBoundaryWrapper } from './components/UI/ErrorBoundaryWrapper';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Header } from './components/Layout/Header';
 import { ProtectedRoute } from './components/Auth/ProtectedRoute';
@@ -18,8 +18,8 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <ErrorBoundary>
-      <AppProvider>
+    <AppProvider>
+      <ErrorBoundaryWrapper>
         <Router>
           <div className="flex h-screen bg-stone-950">
             <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
@@ -59,8 +59,8 @@ function App() {
             <MobileCompatibilityWarning />
           </div>
         </Router>
-      </AppProvider>
-    </ErrorBoundary>
+      </ErrorBoundaryWrapper>
+    </AppProvider>
   );
 }
 

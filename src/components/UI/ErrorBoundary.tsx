@@ -1,11 +1,13 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Bug } from 'lucide-react';
 import { Button } from './Button';
 import { logger } from '../../utils/logger';
+import { createIssueReport, generateGitHubIssueUrl, saveIssueReport, type AppState } from '../../utils/issueReporting';
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  appState?: AppState;
 }
 
 interface State {
@@ -27,6 +29,39 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     logger.error('Error caught by boundary:', error, errorInfo);
     this.setState({ error, errorInfo });
+    
+    // Create and save an issue report for this error
+    try {
+      const report = createIssueReport({
+        type: 'error',
+        category: 'ui-rendering',
+        title: `Error: ${error.name}`,
+        description: error.message,
+        expectedBehavior: 'The application should work without errors',
+        actualBehavior: `An error occurred: ${error.message}`,
+        stepsToReproduce: ['The error occurred automatically'],
+        appState: this.props.appState || {
+          tasks: [],
+          projects: [],
+          goals: [],
+          authentication: { isAuthenticated: false, isDemoMode: false },
+          searchQuery: '',
+          selectedProject: null,
+          selectedPriority: null,
+          userSettings: {}
+        },
+        currentPage: window.location.pathname,
+        errorDetails: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        }
+      });
+      
+      saveIssueReport(report);
+    } catch (reportError) {
+      logger.error('Failed to create error report:', reportError);
+    }
   }
 
   handleReset = () => {
@@ -60,6 +95,43 @@ export class ErrorBoundary extends Component<Props, State> {
                 className="w-full"
               >
                 Refresh Page
+              </Button>
+              <Button 
+                variant="secondary" 
+                onClick={() => {
+                  const report = createIssueReport({
+                    type: 'error',
+                    category: 'ui-rendering',
+                    title: `Error: ${this.state.error?.name}`,
+                    description: this.state.error?.message || 'Unknown error',
+                    expectedBehavior: 'The application should work without errors',
+                    actualBehavior: `An error occurred: ${this.state.error?.message}`,
+                    stepsToReproduce: ['The error occurred automatically'],
+                    appState: this.props.appState || {
+                      tasks: [],
+                      projects: [],
+                      goals: [],
+                      authentication: { isAuthenticated: false, isDemoMode: false },
+                      searchQuery: '',
+                      selectedProject: null,
+                      selectedPriority: null,
+                      userSettings: {}
+                    },
+                    currentPage: window.location.pathname,
+                    errorDetails: {
+                      message: this.state.error?.message || '',
+                      stack: this.state.error?.stack,
+                      name: this.state.error?.name || ''
+                    }
+                  });
+                  
+                  const url = generateGitHubIssueUrl(report);
+                  window.open(url, '_blank');
+                }}
+                className="w-full"
+              >
+                <Bug className="w-4 h-4 mr-2" />
+                Report This Error
               </Button>
             </div>
             {import.meta.env.DEV && this.state.error && (

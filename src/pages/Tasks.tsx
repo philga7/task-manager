@@ -7,6 +7,7 @@ import { EmptyState } from '../components/UI/EmptyState';
 import { DemoModeIndicator } from '../components/UI/DemoModeIndicator';
 import { useApp } from '../context/useApp';
 import { Plus, Filter, SortDesc, Lock, LogIn } from 'lucide-react';
+import { detectSilentFailures } from '../utils/issueReporting';
 
 export function Tasks() {
   const { state, dispatch } = useApp();
@@ -51,6 +52,22 @@ export function Tasks() {
         </div>
       </div>
     );
+  }
+
+  // Silent failure detection
+  const silentFailures = detectSilentFailures({
+    tasks: state.tasks,
+    projects: state.projects,
+    goals: state.goals,
+    authentication: state.authentication,
+    searchQuery: state.searchQuery,
+    selectedProject: state.selectedProject,
+    selectedPriority: state.selectedPriority,
+    userSettings: state.userSettings
+  }, 'tasks');
+  
+  if (silentFailures.length > 0) {
+    console.log('Silent failures detected:', silentFailures);
   }
 
   const filteredTasks = state.tasks.filter(task => {
