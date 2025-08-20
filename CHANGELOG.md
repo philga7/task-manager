@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+# [1.1.0](https://github.com/philga7/task-manager/compare/v1.0.2...v1.1.0) (2025-08-20)
+
+
+### Features
+
+* **troubleshooting:** add EmailJS-powered issue reporting system with environment variable configuration ([#29](https://github.com/philga7/task-manager/issues/29)) ([305aad6](https://github.com/philga7/task-manager/commit/305aad60c6d2d48aaa3105f3dd3a67194e15de2c))
+
 ## [1.0.2](https://github.com/philga7/task-manager/compare/v1.0.1...v1.0.2) (2025-08-20)
 
 ## [1.0.1](https://github.com/philga7/task-manager/compare/v1.0.0...v1.0.1) (2025-08-19)
