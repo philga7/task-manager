@@ -174,24 +174,43 @@ async function loadStateFromStorage(authentication: AppState['authentication']):
       }
     }
 
-    // If no data found in current storage key, try legacy key for backward compatibility
-    if (storageKey !== LEGACY_STORAGE_KEY) {
-      logState.load('legacy key for backward compatibility');
+    // Enhanced fallback: try multiple storage keys for Safari and other browsers
+    const possibleKeys = [];
+    
+    // Add user-specific keys if user exists
+    if (authentication.user) {
+      possibleKeys.push(`task-manager-state-${authentication.user.id}`);
+      possibleKeys.push(`task-manager-state-${authentication.user.email}`);
+    }
+    
+    // Add legacy and demo keys
+    possibleKeys.push('task-manager-state');
+    possibleKeys.push('task-manager-demo-state');
+    
+    // Try each possible key
+    for (const key of possibleKeys) {
+      if (key === storageKey) continue; // Skip the one we already tried
       
-      // Try robust storage for legacy key
-      const legacyState = await RobustStorage.load(LEGACY_STORAGE_KEY);
-      if (legacyState) {
-        logState.loaded(LEGACY_STORAGE_KEY, 'robust legacy');
-        return migrateState(legacyState);
-      }
-
-      // Try simple storage for legacy key
-      if (isStorageAvailable()) {
-        const simpleLegacyState = loadFromStorage(LEGACY_STORAGE_KEY);
-        if (simpleLegacyState) {
-          logState.loaded(LEGACY_STORAGE_KEY, 'simple legacy');
-          return migrateState(simpleLegacyState);
+      try {
+        // Try robust storage
+        const fallbackState = await RobustStorage.load(key);
+        if (fallbackState) {
+          console.log(`Found data in fallback key: ${key}`);
+          logState.loaded(key, 'fallback robust');
+          return migrateState(fallbackState);
         }
+        
+        // Try simple storage
+        if (isStorageAvailable()) {
+          const simpleFallbackState = loadFromStorage(key);
+          if (simpleFallbackState) {
+            console.log(`Found data in fallback key: ${key}`);
+            logState.loaded(key, 'fallback simple');
+            return migrateState(simpleFallbackState);
+          }
+        }
+      } catch (error) {
+        console.warn(`Error trying fallback key ${key}:`, error);
       }
     }
 
