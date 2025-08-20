@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.1.1](https://github.com/philga7/task-manager/compare/v1.1.0...v1.1.1) (2025-08-20)
+
+
+### Bug Fixes
+
+* **safari:** enhance storage fallback mechanism for Safari task loading ([#30](https://github.com/philga7/task-manager/issues/30)) ([abfe664](https://github.com/philga7/task-manager/commit/abfe6643f6205987015b9a1b256b95292971ac2d))
+
 # [1.1.0](https://github.com/philga7/task-manager/compare/v1.0.2...v1.1.0) (2025-08-20)
 
 
