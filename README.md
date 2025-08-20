@@ -66,12 +66,20 @@ Includes a fully functional demo mode with sample data. Click "Try Demo" in the 
    npm install
    ```
 
-2. **Start development server**
+2. **Set up environment variables** (optional, for issue reporting)
+   ```bash
+   # Create .env file with EmailJS credentials
+   VITE_EMAILJS_PUBLIC_KEY=your_public_key_here
+   VITE_EMAILJS_SERVICE_ID=your_service_id_here
+   VITE_EMAILJS_TEMPLATE_ID=your_template_id_here
+   ```
+
+3. **Start development server**
    ```bash
    npm run dev
    ```
 
-3. **Open browser**
+4. **Open browser**
    Navigate to `http://localhost:5173`
 
 ### Build Commands

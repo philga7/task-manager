@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/UI/Card';
 import { Button } from '../components/UI/Button';
 import { useApp } from '../context/useApp';
-import { User, Bell, Palette, Shield, LogOut, LogIn, Play, AlertTriangle, Save, Upload, Database, Settings as SettingsIcon, Lock, TrendingUp, Clock, Target, Zap } from 'lucide-react';
+import { User, Bell, Palette, Shield, LogOut, LogIn, Play, AlertTriangle, Save, Upload, Database, Settings as SettingsIcon, Lock, TrendingUp, Clock, Target, Zap, Bug, Info } from 'lucide-react';
 import { AuthModal } from '../components/Auth/AuthModal';
 import { DataRecovery } from '../utils/storage';
 import { authenticateUser, registerUser, clearCorruptedStorage } from '../utils/auth';
 import { calculateRealTimeAnalytics, generateWeeklyProductivityData } from '../utils/progress';
 import { logger } from '../utils/logger';
+import { IssueReportingModal } from '../components/UI/IssueReportingModal';
 
 export function Settings() {
   const { state, dispatch } = useApp();
@@ -17,6 +18,7 @@ export function Settings() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authError, setAuthError] = useState<string | undefined>();
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [isIssueReportingOpen, setIsIssueReportingOpen] = useState(false);
 
   const { isAuthenticated, isDemoMode } = state.authentication;
 
@@ -677,6 +679,51 @@ export function Settings() {
               </div>
             </Card>
           )}
+
+          {/* Issue Reporting - Show for all users */}
+          <Card>
+            <div className="flex items-center space-x-3 mb-4">
+              <Bug className="w-5 h-5 text-amber-500" />
+              <h3 className="text-base md:text-lg font-medium text-stone-100">Issue Reporting</h3>
+            </div>
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <Info className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-300 mb-1">Report Problems</p>
+                    <p className="text-xs text-blue-200 mb-3">
+                      Found a bug or experiencing issues? Use our comprehensive issue reporting tool to help us fix problems quickly. 
+                      The tool automatically collects browser information and app state for better debugging. Reports can be sent via email.
+                    </p>
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      onClick={() => setIsIssueReportingOpen(true)}
+                    >
+                      Report an Issue
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-3 bg-stone-700/50 border border-stone-600 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-300 mb-1">What gets reported?</p>
+                    <ul className="text-xs text-amber-200 space-y-1">
+                      <li>• Browser type and version</li>
+                      <li>• Current page and app state</li>
+                      <li>• Authentication status</li>
+                      <li>• Storage usage information</li>
+                      <li>• Any error details (if applicable)</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
         </div>
       </div>
 
@@ -691,6 +738,13 @@ export function Settings() {
         error={authError}
         onClearError={() => setAuthError(undefined)}
       />
+
+      {/* Issue Reporting Modal */}
+      <IssueReportingModal
+        isOpen={isIssueReportingOpen}
+        onClose={() => setIsIssueReportingOpen(false)}
+      />
+
     </>
   );
 }
