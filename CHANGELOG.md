@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.1.2](https://github.com/philga7/task-manager/compare/v1.1.1...v1.1.2) (2025-08-22)
+
+
+### Bug Fixes
+
+* improve task list UX by prioritizing newly created tasks ([#31](https://github.com/philga7/task-manager/issues/31)) ([6be3b6a](https://github.com/philga7/task-manager/commit/6be3b6a2222a7987e65da1ae4e716c9dd258f2d3))
+
 ## [1.1.1](https://github.com/philga7/task-manager/compare/v1.1.0...v1.1.1) (2025-08-20)
 
 
