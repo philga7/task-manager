@@ -1053,8 +1053,12 @@ function validateStorageDataForDeployment(data: unknown): {
       }
     }
     
-    // Check for deployment version compatibility
-    if (hasDeploymentVersionChanged()) {
+    // Check for deployment version compatibility (but be lenient with demo data)
+    const isLikelyDemoData = appState.authentication && 
+      typeof appState.authentication === 'object' && 
+      (appState.authentication as Record<string, unknown>).isDemoMode === true;
+      
+    if (hasDeploymentVersionChanged() && !isLikelyDemoData) {
       issues.push('Deployment version changed, data may need migration');
       needsMigration = true;
     }
@@ -1299,11 +1303,11 @@ export function detectAndHandleAuthCorruption(): {
       actions.push({ action: 'deployment-version-check', result: 'Deployment version changed, potential corruption detected' });
     }
     
-    // Check for corrupted authentication data in storage
+    // Check for corrupted authentication data in storage (but NOT user data)
     const authKeys = [
       'task_manager_auth_state',
-      'task_manager_session',
-      'task-manager-state'
+      'task_manager_session'
+      // Note: Removed 'task-manager-state' to preserve user data
     ];
     
     for (const key of authKeys) {

@@ -1,6 +1,6 @@
 import React, { createContext, useReducer, ReactNode, useEffect, useCallback, useRef, useState } from 'react';
 import { appReducer, type AppState, type AppAction } from './appReducer';
-import { saveToStorage, loadFromStorage, isStorageAvailable, RobustStorage, performDemoMigration, detectAndHandleAuthCorruption } from '../utils/storage';
+import { saveToStorage, loadFromStorage, isStorageAvailable, RobustStorage, performDemoMigration } from '../utils/storage';
 import { calculateProjectProgress, calculateGoalProgress } from '../utils/progress';
 import { updateSessionActivity, checkMobileCompatibility, getStorageUsageInfo, restoreAuthState, saveAuthState } from '../utils/auth';
 import { detectMobileBrowser } from '../utils/mobileDetection';
@@ -267,11 +267,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         logBrowser.warning(compatibility.errorMessage);
       }
       
-      // Detect and handle authentication state corruption
-      const corruptionResult = detectAndHandleAuthCorruption();
-      if (corruptionResult.corruptionDetected) {
-        logAuth.warn('Authentication state corruption detected and handled', corruptionResult.actions);
-      }
+      // Skip aggressive corruption detection at startup to preserve user data
+      // Only run corruption detection if user explicitly requests it
+      logAuth.info('Skipping automatic corruption detection to preserve user data');
       
       // Restore authentication state from storage with enhanced corruption detection
       const restoredAuth = restoreAuthState();

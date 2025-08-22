@@ -126,6 +126,12 @@ async function verifyPasswordSecure(password: string, hash: string, salt: string
     const expectedHash = await hashPasswordSecure(password, salt);
     const isValid = hash === expectedHash;
     logAuth.info(`Secure password verification: ${isValid ? 'SUCCESS' : 'FAILED'} (hash length: ${hash.length}, expected length: ${expectedHash.length})`);
+    
+    if (!isValid) {
+      logAuth.info(`Hash comparison failed - stored: ${hash.substring(0, 10)}..., expected: ${expectedHash.substring(0, 10)}...`);
+      logAuth.info(`Salt used: ${salt.substring(0, 10)}...`);
+    }
+    
     return isValid;
   } catch (error) {
     logAuth.error('Secure password verification failed', error);
@@ -595,10 +601,30 @@ export async function authenticateUser(email: string, password: string): Promise
     
     if (!passwordValid) {
       logAuth.warn(`Password verification failed for user: ${storedUser.email}`);
-      throw new Error('Invalid email or password');
+      
+      // Try legacy verification as fallback for secure users
+      if (storedUser.passwordVersion === PASSWORD_VERSIONS.SECURE) {
+        logAuth.info(`Attempting legacy verification fallback for user: ${storedUser.email}`);
+        const legacyValid = verifyPasswordLegacy(password, storedUser.passwordHash);
+        
+        if (legacyValid) {
+          logAuth.info(`Legacy verification successful, migrating password for user: ${storedUser.email}`);
+          // Migrate to current secure format
+          const { hash, salt, version } = await hashPassword(password);
+          users[userIndex].passwordHash = hash;
+          users[userIndex].salt = salt;
+          users[userIndex].passwordVersion = version;
+          saveUsers(users);
+          logAuth.info('Password migrated to secure format for user:', storedUser.email);
+        } else {
+          throw new Error('Invalid email or password');
+        }
+      } else {
+        throw new Error('Invalid email or password');
+      }
+    } else {
+      logAuth.info(`Password verification successful for user: ${storedUser.email}`);
     }
-    
-    logAuth.info(`Password verification successful for user: ${storedUser.email}`);
   } catch (error) {
     logAuth.error(`Password verification error for user: ${storedUser.email}`, error);
     throw new Error('Invalid email or password');
@@ -748,6 +774,136 @@ export function clearAllUsers(): void {
   } catch (error) {
     logAuth.error('clearing users', error);
     throw new Error('Failed to clear user data');
+  }
+}
+
+/**
+ * Recover user data by checking all possible storage locations
+ */
+export function recoverUserData(userEmail: string): {
+  success: boolean;
+  actions: Array<{ action: string; result: string; data?: unknown }>;
+} {
+  const actions: Array<{ action: string; result: string; data?: unknown }> = [];
+  
+  try {
+    logAuth.info('Starting user data recovery for', userEmail);
+    
+    // Check all possible storage keys
+    const possibleKeys = [
+      'task-manager-state',
+      `task-manager-state-${userEmail}`,
+      'task-manager-demo-state'
+    ];
+    
+    // Also try to find user-specific keys in localStorage
+    const allKeys = Object.keys(localStorage);
+    allKeys.forEach(key => {
+      if (key.includes('task-manager-state') && key.includes(userEmail)) {
+        possibleKeys.push(key);
+      }
+    });
+    
+    let foundData = false;
+    
+    for (const key of possibleKeys) {
+      try {
+        const data = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (data) {
+          const parsed = JSON.parse(data);
+          
+          // Check if this data belongs to the user
+          if (parsed.authentication?.user?.email === userEmail || 
+              parsed.userSettings?.profile?.email === userEmail ||
+              key.includes(userEmail)) {
+            
+            actions.push({ 
+              action: `found-data-${key}`, 
+              result: `Found user data in ${key}`,
+              data: {
+                tasks: parsed.tasks?.length || 0,
+                projects: parsed.projects?.length || 0,
+                goals: parsed.goals?.length || 0
+              }
+            });
+            foundData = true;
+          }
+        }
+      } catch (error) {
+        actions.push({ 
+          action: `check-${key}`, 
+          result: `Error checking ${key}: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        });
+      }
+    }
+    
+    if (!foundData) {
+      actions.push({ action: 'no-data-found', result: 'No user data found in any storage location' });
+    }
+    
+    return { success: foundData, actions };
+    
+  } catch (error) {
+    logAuth.error('Error during user data recovery', error);
+    actions.push({ action: 'error', result: `Recovery failed: ${error instanceof Error ? error.message : 'Unknown error'}` });
+    return { success: false, actions };
+  }
+}
+
+/**
+ * Debug authentication state and potentially reset if needed
+ */
+export function debugAndResetAuthState(): {
+  success: boolean;
+  actions: Array<{ action: string; result: string }>;
+} {
+  const actions: Array<{ action: string; result: string }> = [];
+  
+  try {
+    logAuth.info('Starting authentication state debug and reset');
+    
+    // Check current session
+    const session = getSession();
+    if (session) {
+      actions.push({ action: 'session-check', result: `Found session for user: ${session.userId}` });
+    } else {
+      actions.push({ action: 'session-check', result: 'No active session found' });
+    }
+    
+    // Check stored users
+    const users = getRegisteredUsers();
+    actions.push({ action: 'users-check', result: `Found ${users.length} registered users` });
+    
+    // Check auth state
+    const authState = restoreAuthState();
+    if (authState) {
+      actions.push({ action: 'auth-state-check', result: `Auth state found: ${authState.isAuthenticated ? 'authenticated' : 'not authenticated'}` });
+    } else {
+      actions.push({ action: 'auth-state-check', result: 'No auth state found' });
+    }
+    
+    // Clear all authentication data
+    clearAuthState();
+    actions.push({ action: 'clear-auth', result: 'Cleared all authentication state' });
+    
+    // Clear session
+    clearSession();
+    actions.push({ action: 'clear-session', result: 'Cleared session data' });
+    
+    // Clear version tracking
+    localStorage.removeItem(AUTH_VERSION_KEY);
+    sessionStorage.removeItem(AUTH_VERSION_KEY);
+    localStorage.removeItem(DEPLOYMENT_VERSION_KEY);
+    sessionStorage.removeItem(DEPLOYMENT_VERSION_KEY);
+    actions.push({ action: 'clear-versions', result: 'Cleared version tracking' });
+    
+    logAuth.info('Authentication state debug and reset completed');
+    return { success: true, actions };
+    
+  } catch (error) {
+    logAuth.error('Error during auth state debug and reset', error);
+    actions.push({ action: 'error', result: `Reset failed: ${error instanceof Error ? error.message : 'Unknown error'}` });
+    return { success: false, actions };
   }
 }
 
@@ -1085,7 +1241,28 @@ export function restoreAuthState(): {
       } else {
         logAuth.warn('Session data validation failed', validation.issues);
         
-        if (validation.canRecover) {
+        // Check if the only issue is version mismatch - allow migration
+        const onlyVersionIssue = validation.issues.length === 1 && 
+          validation.issues[0].includes('Auth state version outdated');
+        
+        if (onlyVersionIssue) {
+          logAuth.info('Auth state version outdated, allowing migration', validation.issues);
+          updateAuthVersion(AUTH_STATE_VERSIONS.CURRENT);
+          
+          // For demo mode, return demo user
+          if (session.isDemoMode) {
+            return sessionAuthData;
+          }
+          
+          // For regular users, validate that user still exists
+          if (validateUserSession(session.userId)) {
+            return sessionAuthData;
+          } else {
+            logAuth.session('user no longer exists, clearing session', session.userId);
+            clearSession();
+            return null;
+          }
+        } else if (validation.canRecover) {
           logAuth.info('Attempting to recover from backup sources');
           const recovered = recoverAuthStateFromBackups();
           if (recovered) {
@@ -1114,7 +1291,15 @@ export function restoreAuthState(): {
         } else {
           logAuth.warn('Invalid auth data found in localStorage', validation.issues);
           
-          if (validation.canRecover) {
+          // Check if the only issue is version mismatch - allow migration
+          const onlyVersionIssue = validation.issues.length === 1 && 
+            validation.issues[0].includes('Auth state version outdated');
+          
+          if (onlyVersionIssue) {
+            logAuth.info('Auth state version outdated, allowing migration from localStorage', validation.issues);
+            updateAuthVersion(AUTH_STATE_VERSIONS.CURRENT);
+            return authData;
+          } else if (validation.canRecover) {
             logAuth.info('Attempting to recover from backup sources');
             const recovered = recoverAuthStateFromBackups();
             if (recovered) {
@@ -1161,11 +1346,22 @@ export function saveAuthState(authState: {
   isDemoMode: boolean;
 }): void {
   try {
-    // Validate auth state before saving
+    // Validate auth state before saving (allow migration for real users)
     const validation = validateAuthDataWithCorruptionDetection(authState);
-    if (!validation.isValid) {
-      logAuth.warn('Attempting to save invalid auth state', validation.issues);
-      return;
+    if (!validation.isValid && !authState.isDemoMode) {
+      // Check if the only issue is version mismatch - allow migration
+      const onlyVersionIssue = validation.issues.length === 1 && 
+        validation.issues[0].includes('Auth state version outdated');
+      
+      if (onlyVersionIssue) {
+        logAuth.info('Auth state version outdated, allowing save for migration', validation.issues);
+        // Continue with save to allow migration
+      } else {
+        logAuth.warn('Attempting to save invalid auth state', validation.issues);
+        return;
+      }
+    } else if (!validation.isValid && authState.isDemoMode) {
+      logAuth.info('Demo mode auth state has validation issues, but allowing save', validation.issues);
     }
     
     // Save to localStorage as primary storage
@@ -1381,15 +1577,16 @@ function validateAuthDataWithCorruptionDetection(authData: unknown): {
       }
     }
     
-    // Check for deployment version compatibility
+    // Check for deployment version compatibility (but allow migration for real users)
     const storedVersion = getStoredAuthVersion();
-    if (storedVersion < AUTH_STATE_VERSIONS.CURRENT) {
-      issues.push(`Auth state version outdated (${storedVersion} < ${AUTH_STATE_VERSIONS.CURRENT})`);
-      isCorrupted = true;
+    if (storedVersion < AUTH_STATE_VERSIONS.CURRENT && !auth.isDemoMode) {
+      // For real users, mark as needing migration but don't treat as corrupted
+      issues.push(`Auth state version outdated (${storedVersion} < ${AUTH_STATE_VERSIONS.CURRENT}) - will migrate`);
+      // Don't mark as corrupted for version mismatches - allow migration
     }
     
-    // Check for deployment changes that might cause corruption
-    if (hasDeploymentChanged()) {
+    // Check for deployment changes that might cause corruption (but allow demo mode)
+    if (hasDeploymentChanged() && !auth.isDemoMode) {
       issues.push('Deployment version changed, potential corruption detected');
       isCorrupted = true;
     }
