@@ -97,6 +97,18 @@ export function Tasks() {
   });
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
+    // Check if tasks are newly created (within 24 hours)
+    const now = new Date();
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    
+    const aIsNew = new Date(a.createdAt) > twentyFourHoursAgo;
+    const bIsNew = new Date(b.createdAt) > twentyFourHoursAgo;
+    
+    // Prioritize newly created tasks at the top
+    if (aIsNew && !bIsNew) return -1;
+    if (!aIsNew && bIsNew) return 1;
+    
+    // If both are new or both are old, apply normal sorting
     switch (sortBy) {
       case 'dueDate':
         if (!a.dueDate) return 1;
