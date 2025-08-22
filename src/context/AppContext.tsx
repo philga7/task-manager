@@ -1,8 +1,8 @@
 import React, { createContext, useReducer, ReactNode, useEffect, useCallback, useRef, useState } from 'react';
 import { appReducer, type AppState, type AppAction } from './appReducer';
-import { saveToStorage, loadFromStorage, isStorageAvailable, RobustStorage, performDemoMigration } from '../utils/storage';
+import { saveToStorage, loadFromStorage, isStorageAvailable, RobustStorage, performDemoMigration, detectAndHandleAuthCorruption } from '../utils/storage';
 import { calculateProjectProgress, calculateGoalProgress } from '../utils/progress';
-import { updateSessionActivity, checkMobileCompatibility, getStorageUsageInfo, restoreAuthState } from '../utils/auth';
+import { updateSessionActivity, checkMobileCompatibility, getStorageUsageInfo, restoreAuthState, saveAuthState } from '../utils/auth';
 import { detectMobileBrowser } from '../utils/mobileDetection';
 import { MobileCompatibilityState, Task, Project, Goal, UserSettings, AuthenticationState } from '../types';
 import { logState, logBrowser, logAuth, logStorage, logProfile } from '../utils/logger';
@@ -267,16 +267,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
         logBrowser.warning(compatibility.errorMessage);
       }
       
-      // Restore authentication state from storage
+      // Detect and handle authentication state corruption
+      const corruptionResult = detectAndHandleAuthCorruption();
+      if (corruptionResult.corruptionDetected) {
+        logAuth.warn('Authentication state corruption detected and handled', corruptionResult.actions);
+      }
+      
+      // Restore authentication state from storage with enhanced corruption detection
       const restoredAuth = restoreAuthState();
       let currentAuthState = initialState.authentication;
       
       if (restoredAuth) {
-        logAuth.info('Restored authentication state', restoredAuth);
+        logAuth.info('Restored authentication state with corruption detection', restoredAuth);
         currentAuthState = restoredAuth;
         
         // Dispatch the restored authentication state
         dispatch({ type: 'RESTORE_AUTH', payload: restoredAuth });
+      } else {
+        logAuth.info('No valid authentication state found, starting fresh');
       }
       
       // Perform demo migration if in demo mode
@@ -396,24 +404,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
       prevAuth.isDemoMode !== authentication.isDemoMode ||
       prevAuth.user?.id !== authentication.user?.id;
     
-    if (authChanged && (authentication.isAuthenticated || authentication.isDemoMode)) {
+    if (authChanged) {
       logState.authChange();
       
-      const loadUserData = async () => {
-        const loadedState = await loadStateFromStorage(authentication);
-        if (loadedState) {
-          // Update state with loaded data while preserving authentication state
-          const updatedState = {
-            ...loadedState,
-            authentication: authentication
-          };
-          
-          // Dispatch a custom action to update the state
-          dispatch({ type: 'LOAD_USER_DATA', payload: updatedState });
-        }
-      };
+      // Save authentication state with enhanced backup and version tracking
+      if (authentication.isAuthenticated || authentication.isDemoMode) {
+        saveAuthState(authentication);
+      }
       
-      loadUserData();
+      if (authentication.isAuthenticated || authentication.isDemoMode) {
+        const loadUserData = async () => {
+          const loadedState = await loadStateFromStorage(authentication);
+          if (loadedState) {
+            // Update state with loaded data while preserving authentication state
+            const updatedState = {
+              ...loadedState,
+              authentication: authentication
+            };
+            
+            // Dispatch a custom action to update the state
+            dispatch({ type: 'LOAD_USER_DATA', payload: updatedState });
+          }
+        };
+        
+        loadUserData();
+      }
     }
     
     // Update the ref with current authentication state

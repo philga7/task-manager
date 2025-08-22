@@ -6,6 +6,10 @@ import { generateDemoState } from './demoData';
 // Migration flag key
 const DEMO_MIGRATION_FLAG = 'demo:migration-completed';
 
+// Deployment tracking keys
+const DEPLOYMENT_VERSION_KEY = 'task_manager_deployment_version';
+const AUTH_VERSION_KEY = 'task_manager_auth_version';
+
 // Known storage keys that need to be migrated
 const KNOWN_STORAGE_KEYS = [
   'task-manager-state',
@@ -257,6 +261,37 @@ export function loadFromStorage(key: string): AppState | null {
     if (data.trim() === '') {
       logStorage.warn('Empty data found in storage, returning null');
       return null;
+    }
+    
+    // Validate data for deployment compatibility before deserializing
+    try {
+      const parsedData = JSON.parse(data);
+      const validation = validateStorageDataForDeployment(parsedData);
+      
+      if (!validation.isValid) {
+        logStorage.warn('Storage data validation failed', validation.issues);
+        
+        if (validation.needsMigration) {
+          logStorage.info('Attempting to migrate corrupted storage data');
+          // Clear corrupted data and return null to start fresh
+          try {
+            const browserInfo = detectMobileBrowser();
+            const namespacedKey = getNamespacedKey(key);
+            if (browserInfo.supportsLocalStorage) {
+              localStorage.removeItem(namespacedKey);
+            }
+            if (browserInfo.supportsSessionStorage) {
+              sessionStorage.removeItem(namespacedKey);
+            }
+            logStorage.warn('Cleared corrupted storage data');
+          } catch (clearError) {
+            logStorage.error('Failed to clear corrupted data', clearError);
+          }
+          return null;
+        }
+      }
+    } catch (parseError) {
+      logStorage.warn('Failed to parse storage data for validation', parseError);
     }
     
     return deserializeState(data);
@@ -948,6 +983,100 @@ function isDemoMigrationCompleted(): boolean {
 }
 
 /**
+ * Check if deployment version has changed
+ */
+function hasDeploymentVersionChanged(): boolean {
+  try {
+    const storedVersion = localStorage.getItem(DEPLOYMENT_VERSION_KEY) || sessionStorage.getItem(DEPLOYMENT_VERSION_KEY);
+    const currentVersion = '1.0.0'; // Should match the version in auth.ts
+    
+    if (!storedVersion) {
+      // First time running, update version
+      localStorage.setItem(DEPLOYMENT_VERSION_KEY, currentVersion);
+      sessionStorage.setItem(DEPLOYMENT_VERSION_KEY, currentVersion);
+      return false;
+    }
+    
+    const changed = storedVersion !== currentVersion;
+    if (changed) {
+      logStorage.info('Deployment version changed', { from: storedVersion, to: currentVersion });
+      localStorage.setItem(DEPLOYMENT_VERSION_KEY, currentVersion);
+      sessionStorage.setItem(DEPLOYMENT_VERSION_KEY, currentVersion);
+    }
+    
+    return changed;
+  } catch (error) {
+    logStorage.warn('Failed to check deployment version', error);
+    return false;
+  }
+}
+
+/**
+ * Validate storage data for deployment compatibility
+ */
+function validateStorageDataForDeployment(data: unknown): {
+  isValid: boolean;
+  needsMigration: boolean;
+  issues: string[];
+} {
+  const issues: string[] = [];
+  let needsMigration = false;
+  
+  try {
+    if (!data || typeof data !== 'object') {
+      issues.push('Invalid data structure');
+      return { isValid: false, needsMigration: false, issues };
+    }
+    
+    const appState = data as Record<string, unknown>;
+    
+    // Check for required properties
+    const requiredProps = ['tasks', 'projects', 'goals', 'analytics', 'userSettings', 'authentication'];
+    for (const prop of requiredProps) {
+      if (!(prop in appState)) {
+        issues.push(`Missing required property: ${prop}`);
+        needsMigration = true;
+      }
+    }
+    
+    // Check authentication state structure
+    if (appState.authentication && typeof appState.authentication === 'object') {
+      const auth = appState.authentication as Record<string, unknown>;
+      
+      if (typeof auth.isAuthenticated !== 'boolean') {
+        issues.push('Invalid authentication state: isAuthenticated must be boolean');
+        needsMigration = true;
+      }
+      
+      if (typeof auth.isDemoMode !== 'boolean') {
+        issues.push('Invalid authentication state: isDemoMode must be boolean');
+        needsMigration = true;
+      }
+    }
+    
+    // Check for deployment version compatibility
+    if (hasDeploymentVersionChanged()) {
+      issues.push('Deployment version changed, data may need migration');
+      needsMigration = true;
+    }
+    
+    return {
+      isValid: issues.length === 0,
+      needsMigration,
+      issues
+    };
+    
+  } catch (error) {
+    logStorage.error('Error validating storage data for deployment', error);
+    return {
+      isValid: false,
+      needsMigration: true,
+      issues: [`Validation error: ${error instanceof Error ? error.message : 'Unknown error'}`]
+    };
+  }
+}
+
+/**
  * Mark demo migration as completed
  */
 function markDemoMigrationCompleted(): void {
@@ -1149,6 +1278,83 @@ export function performDemoMigration(): {
     logStorage.error('Demo migration failed', error);
     actions.push({ action: 'error', result: `Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}` });
     return { success: false, actions };
+  }
+}
+
+/**
+ * Detect and handle authentication state corruption
+ */
+export function detectAndHandleAuthCorruption(): {
+  corruptionDetected: boolean;
+  actions: Array<{ action: string; result: string }>;
+} {
+  const actions: Array<{ action: string; result: string }> = [];
+  let corruptionDetected = false;
+  
+  try {
+    logStorage.info('Checking for authentication state corruption');
+    
+    // Check for deployment version changes
+    if (hasDeploymentVersionChanged()) {
+      corruptionDetected = true;
+      actions.push({ action: 'deployment-version-check', result: 'Deployment version changed, potential corruption detected' });
+    }
+    
+    // Check for corrupted authentication data in storage
+    const authKeys = [
+      'task_manager_auth_state',
+      'task_manager_session',
+      'task-manager-state'
+    ];
+    
+    for (const key of authKeys) {
+      try {
+        const data = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (data) {
+          const parsed = JSON.parse(data);
+          const validation = validateStorageDataForDeployment(parsed);
+          
+          if (!validation.isValid) {
+            corruptionDetected = true;
+            actions.push({ 
+              action: `validate-${key}`, 
+              result: `Corruption detected in ${key}: ${validation.issues.join(', ')}` 
+            });
+            
+            // Clear corrupted data
+            localStorage.removeItem(key);
+            sessionStorage.removeItem(key);
+            actions.push({ action: `clear-${key}`, result: `Cleared corrupted data from ${key}` });
+          }
+        }
+      } catch (error) {
+        corruptionDetected = true;
+        actions.push({ 
+          action: `parse-${key}`, 
+          result: `Failed to parse ${key}: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        });
+        
+        // Clear unparseable data
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+        actions.push({ action: `clear-${key}`, result: `Cleared unparseable data from ${key}` });
+      }
+    }
+    
+    if (corruptionDetected) {
+      logStorage.warn('Authentication state corruption detected and handled', actions);
+    } else {
+      logStorage.info('No authentication state corruption detected');
+    }
+    
+    return { corruptionDetected, actions };
+    
+  } catch (error) {
+    logStorage.error('Error during corruption detection', error);
+    return { 
+      corruptionDetected: true, 
+      actions: [{ action: 'error', result: `Detection failed: ${error instanceof Error ? error.message : 'Unknown error'}` }] 
+    };
   }
 }
 
