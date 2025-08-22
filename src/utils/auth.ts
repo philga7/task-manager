@@ -27,12 +27,24 @@ interface SessionData {
 const USERS_STORAGE_KEY = 'task_manager_users';
 const SESSION_STORAGE_KEY = 'task_manager_session';
 const SESSION_TIMEOUT_HOURS = 24; // Session expires after 24 hours of inactivity
+const AUTH_VERSION_KEY = 'task_manager_auth_version';
+const DEPLOYMENT_VERSION_KEY = 'task_manager_deployment_version';
 
 // Password hash versions
 const PASSWORD_VERSIONS = {
   LEGACY: 1, // Old btoa() implementation
   SECURE: 2  // New Web Crypto API implementation
 };
+
+// Authentication state versions for deployment tracking
+const AUTH_STATE_VERSIONS = {
+  LEGACY: 1,    // Original authentication state format
+  ENHANCED: 2,  // Enhanced with deployment tracking and validation
+  CURRENT: 3    // Current version with corruption detection
+};
+
+// Current deployment version - should be updated with each deployment
+const CURRENT_DEPLOYMENT_VERSION = '1.0.0';
 
 // Check Web Crypto API availability
 const isWebCryptoAvailable = typeof crypto !== 'undefined' && 
@@ -114,6 +126,12 @@ async function verifyPasswordSecure(password: string, hash: string, salt: string
     const expectedHash = await hashPasswordSecure(password, salt);
     const isValid = hash === expectedHash;
     logAuth.info(`Secure password verification: ${isValid ? 'SUCCESS' : 'FAILED'} (hash length: ${hash.length}, expected length: ${expectedHash.length})`);
+    
+    if (!isValid) {
+      logAuth.info(`Hash comparison failed - stored: ${hash.substring(0, 10)}..., expected: ${expectedHash.substring(0, 10)}...`);
+      logAuth.info(`Salt used: ${salt.substring(0, 10)}...`);
+    }
+    
     return isValid;
   } catch (error) {
     logAuth.error('Secure password verification failed', error);
@@ -366,6 +384,16 @@ export function createSession(user: User, isDemoMode: boolean = false): void {
   };
   
   saveSession(sessionData);
+  
+  // Log authentication state change for deployment tracking
+  logAuth.info('Session created', {
+    userId: user.id,
+    email: user.email,
+    isDemoMode,
+    deploymentVersion: getCurrentDeploymentVersion(),
+    authVersion: AUTH_STATE_VERSIONS.CURRENT,
+    timestamp: new Date().toISOString()
+  });
 }
 
 /**
@@ -416,6 +444,19 @@ export function getCurrentSessionUser(): User | null {
  * Clear current session (logout)
  */
 export function clearCurrentSession(): void {
+  // Log session clearing for deployment tracking
+  const session = getSession();
+  if (session) {
+    logAuth.info('Session cleared', {
+      userId: session.userId,
+      email: session.email,
+      isDemoMode: session.isDemoMode,
+      deploymentVersion: getCurrentDeploymentVersion(),
+      authVersion: AUTH_STATE_VERSIONS.CURRENT,
+      timestamp: new Date().toISOString()
+    });
+  }
+  
   clearSession();
 }
 
@@ -560,10 +601,30 @@ export async function authenticateUser(email: string, password: string): Promise
     
     if (!passwordValid) {
       logAuth.warn(`Password verification failed for user: ${storedUser.email}`);
-      throw new Error('Invalid email or password');
+      
+      // Try legacy verification as fallback for secure users
+      if (storedUser.passwordVersion === PASSWORD_VERSIONS.SECURE) {
+        logAuth.info(`Attempting legacy verification fallback for user: ${storedUser.email}`);
+        const legacyValid = verifyPasswordLegacy(password, storedUser.passwordHash);
+        
+        if (legacyValid) {
+          logAuth.info(`Legacy verification successful, migrating password for user: ${storedUser.email}`);
+          // Migrate to current secure format
+          const { hash, salt, version } = await hashPassword(password);
+          users[userIndex].passwordHash = hash;
+          users[userIndex].salt = salt;
+          users[userIndex].passwordVersion = version;
+          saveUsers(users);
+          logAuth.info('Password migrated to secure format for user:', storedUser.email);
+        } else {
+          throw new Error('Invalid email or password');
+        }
+      } else {
+        throw new Error('Invalid email or password');
+      }
+    } else {
+      logAuth.info(`Password verification successful for user: ${storedUser.email}`);
     }
-    
-    logAuth.info(`Password verification successful for user: ${storedUser.email}`);
   } catch (error) {
     logAuth.error(`Password verification error for user: ${storedUser.email}`, error);
     throw new Error('Invalid email or password');
@@ -714,6 +775,243 @@ export function clearAllUsers(): void {
     logAuth.error('clearing users', error);
     throw new Error('Failed to clear user data');
   }
+}
+
+/**
+ * Recover user data by checking all possible storage locations
+ */
+export function recoverUserData(userEmail: string): {
+  success: boolean;
+  actions: Array<{ action: string; result: string; data?: unknown }>;
+} {
+  const actions: Array<{ action: string; result: string; data?: unknown }> = [];
+  
+  try {
+    logAuth.info('Starting user data recovery for', userEmail);
+    
+    // Check all possible storage keys
+    const possibleKeys = [
+      'task-manager-state',
+      `task-manager-state-${userEmail}`,
+      'task-manager-demo-state'
+    ];
+    
+    // Also try to find user-specific keys in localStorage
+    const allKeys = Object.keys(localStorage);
+    allKeys.forEach(key => {
+      if (key.includes('task-manager-state') && key.includes(userEmail)) {
+        possibleKeys.push(key);
+      }
+    });
+    
+    let foundData = false;
+    
+    for (const key of possibleKeys) {
+      try {
+        const data = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (data) {
+          const parsed = JSON.parse(data);
+          
+          // Check if this data belongs to the user
+          if (parsed.authentication?.user?.email === userEmail || 
+              parsed.userSettings?.profile?.email === userEmail ||
+              key.includes(userEmail)) {
+            
+            actions.push({ 
+              action: `found-data-${key}`, 
+              result: `Found user data in ${key}`,
+              data: {
+                tasks: parsed.tasks?.length || 0,
+                projects: parsed.projects?.length || 0,
+                goals: parsed.goals?.length || 0
+              }
+            });
+            foundData = true;
+          }
+        }
+      } catch (error) {
+        actions.push({ 
+          action: `check-${key}`, 
+          result: `Error checking ${key}: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        });
+      }
+    }
+    
+    if (!foundData) {
+      actions.push({ action: 'no-data-found', result: 'No user data found in any storage location' });
+    }
+    
+    return { success: foundData, actions };
+    
+  } catch (error) {
+    logAuth.error('Error during user data recovery', error);
+    actions.push({ action: 'error', result: `Recovery failed: ${error instanceof Error ? error.message : 'Unknown error'}` });
+    return { success: false, actions };
+  }
+}
+
+/**
+ * Debug authentication state and potentially reset if needed
+ */
+export function debugAndResetAuthState(): {
+  success: boolean;
+  actions: Array<{ action: string; result: string }>;
+} {
+  const actions: Array<{ action: string; result: string }> = [];
+  
+  try {
+    logAuth.info('Starting authentication state debug and reset');
+    
+    // Check current session
+    const session = getSession();
+    if (session) {
+      actions.push({ action: 'session-check', result: `Found session for user: ${session.userId}` });
+    } else {
+      actions.push({ action: 'session-check', result: 'No active session found' });
+    }
+    
+    // Check stored users
+    const users = getRegisteredUsers();
+    actions.push({ action: 'users-check', result: `Found ${users.length} registered users` });
+    
+    // Check auth state
+    const authState = restoreAuthState();
+    if (authState) {
+      actions.push({ action: 'auth-state-check', result: `Auth state found: ${authState.isAuthenticated ? 'authenticated' : 'not authenticated'}` });
+    } else {
+      actions.push({ action: 'auth-state-check', result: 'No auth state found' });
+    }
+    
+    // Clear all authentication data
+    clearAuthState();
+    actions.push({ action: 'clear-auth', result: 'Cleared all authentication state' });
+    
+    // Clear session
+    clearSession();
+    actions.push({ action: 'clear-session', result: 'Cleared session data' });
+    
+    // Clear version tracking
+    localStorage.removeItem(AUTH_VERSION_KEY);
+    sessionStorage.removeItem(AUTH_VERSION_KEY);
+    localStorage.removeItem(DEPLOYMENT_VERSION_KEY);
+    sessionStorage.removeItem(DEPLOYMENT_VERSION_KEY);
+    actions.push({ action: 'clear-versions', result: 'Cleared version tracking' });
+    
+    logAuth.info('Authentication state debug and reset completed');
+    return { success: true, actions };
+    
+  } catch (error) {
+    logAuth.error('Error during auth state debug and reset', error);
+    actions.push({ action: 'error', result: `Reset failed: ${error instanceof Error ? error.message : 'Unknown error'}` });
+    return { success: false, actions };
+  }
+}
+
+/**
+ * Test authentication state corruption detection and recovery
+ */
+export function testAuthCorruptionDetection(): {
+  success: boolean;
+  tests: Array<{ name: string; passed: boolean; error?: string }>;
+} {
+  const tests: Array<{ name: string; passed: boolean; error?: string }> = [];
+  
+  try {
+    // Test 1: Check deployment version tracking
+    const currentVersion = getCurrentDeploymentVersion();
+    const storedVersion = getStoredDeploymentVersion();
+    
+    tests.push({
+      name: 'Deployment version tracking',
+      passed: typeof currentVersion === 'string' && currentVersion.length > 0,
+      error: typeof currentVersion !== 'string' || currentVersion.length === 0 ? 'Deployment version tracking failed' : undefined
+    });
+    
+    // Test 1.5: Check stored version functionality
+    tests.push({
+      name: 'Stored deployment version functionality',
+      passed: storedVersion === null || (typeof storedVersion === 'string' && storedVersion.length > 0),
+      error: storedVersion !== null && (typeof storedVersion !== 'string' || storedVersion.length === 0) ? 'Stored deployment version functionality failed' : undefined
+    });
+    
+    // Test 2: Check auth version tracking
+    const authVersion = getStoredAuthVersion();
+    tests.push({
+      name: 'Auth version tracking',
+      passed: typeof authVersion === 'number' && authVersion >= AUTH_STATE_VERSIONS.LEGACY,
+      error: typeof authVersion !== 'number' || authVersion < AUTH_STATE_VERSIONS.LEGACY ? 'Auth version tracking failed' : undefined
+    });
+    
+    // Test 3: Test corruption detection with valid data
+    const validAuthData = {
+      user: { id: 'test-user', email: 'test@example.com', name: 'Test User' },
+      isAuthenticated: true,
+      isDemoMode: false
+    };
+    
+    const validValidation = validateAuthDataWithCorruptionDetection(validAuthData);
+    tests.push({
+      name: 'Valid auth data validation',
+      passed: validValidation.isValid && !validValidation.isCorrupted,
+      error: !validValidation.isValid || validValidation.isCorrupted ? 'Valid auth data validation failed' : undefined
+    });
+    
+    // Test 4: Test corruption detection with invalid data
+    const invalidAuthData = {
+      user: null,
+      isAuthenticated: 'invalid', // Should be boolean
+      isDemoMode: false
+    };
+    
+    const invalidValidation = validateAuthDataWithCorruptionDetection(invalidAuthData);
+    tests.push({
+      name: 'Invalid auth data validation',
+      passed: !invalidValidation.isValid && invalidValidation.isCorrupted,
+      error: invalidValidation.isValid || !invalidValidation.isCorrupted ? 'Invalid auth data validation failed' : undefined
+    });
+    
+    // Test 5: Test backup recovery
+    const testBackupData = {
+      user: { id: 'backup-user', email: 'backup@example.com', name: 'Backup User' },
+      isAuthenticated: true,
+      isDemoMode: false
+    };
+    
+    // Save test backup
+    localStorage.setItem('task_manager_auth_backup_test', JSON.stringify(testBackupData));
+    
+    const recovered = recoverAuthStateFromBackups();
+    tests.push({
+      name: 'Backup recovery',
+      passed: recovered !== null,
+      error: recovered === null ? 'Backup recovery failed' : undefined
+    });
+    
+    // Clean up test backup
+    localStorage.removeItem('task_manager_auth_backup_test');
+    
+  } catch (error) {
+    tests.push({
+      name: 'Auth corruption detection test execution',
+      passed: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+  
+  const success = tests.every(test => test.passed);
+  
+  // Log test results
+  console.log('=== Auth Corruption Detection Test Results ===');
+  tests.forEach(test => {
+    console.log(`${test.passed ? '✅' : '❌'} ${test.name}: ${test.passed ? 'PASSED' : 'FAILED'}`);
+    if (test.error) {
+      console.log(`   Error: ${test.error}`);
+    }
+  });
+  console.log(`Overall: ${success ? 'PASSED' : 'FAILED'}`);
+  console.log('=== End Test Results ===');
+  
+  return { success, tests };
 }
 
 /**
@@ -884,56 +1182,10 @@ export function validateUserSession(userId: string): boolean {
   return users.some(user => user.id === userId);
 }
 
-/**
- * Validate stored authentication data
- */
-function isValidAuthData(authData: unknown): boolean {
-  try {
-    // Check if authData has the required structure
-    if (!authData || typeof authData !== 'object') {
-      return false;
-    }
-    
-    const auth = authData as Record<string, unknown>;
-    
-    // Check for required authentication properties
-    if (typeof auth.isAuthenticated !== 'boolean') {
-      return false;
-    }
-    
-    // If authenticated, user object must exist and be valid
-    if (auth.isAuthenticated) {
-      if (!auth.user || typeof auth.user !== 'object') {
-        return false;
-      }
-      
-      const user = auth.user as Record<string, unknown>;
-      
-      // Validate user object properties
-      if (!user.id || !user.email || !user.name) {
-        return false;
-      }
-      
-      // Check if user still exists in storage (for non-demo users)
-      if (!auth.isDemoMode && !validateUserSession(user.id as string)) {
-        return false;
-      }
-    }
-    
-    // Check demo mode flag
-    if (typeof auth.isDemoMode !== 'boolean') {
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    logAuth.error('Error validating auth data', error);
-    return false;
-  }
-}
+
 
 /**
- * Restore authentication state from storage
+ * Restore authentication state from storage with enhanced corruption detection and recovery
  */
 export function restoreAuthState(): {
   user: User | null;
@@ -941,13 +1193,490 @@ export function restoreAuthState(): {
   isDemoMode: boolean;
 } | null {
   try {
+    logAuth.info('Starting authentication state restoration with corruption detection');
+    
+    // Check for deployment changes that might cause corruption
+    const deploymentChanged = hasDeploymentChanged();
+    if (deploymentChanged) {
+      logAuth.warn('Deployment version changed, checking for corruption');
+    }
+    
     // First try to get session data
     const session = getSession();
     
     if (session && isSessionValid(session)) {
       logAuth.session('restoring from session', session.userId);
       
-      // For demo mode, return demo user
+      // Validate session data with corruption detection
+      const sessionAuthData = {
+        user: {
+          id: session.userId,
+          email: session.email,
+          name: session.name,
+          createdAt: new Date(session.loginTime)
+        },
+        isAuthenticated: true,
+        isDemoMode: session.isDemoMode
+      };
+      
+      const validation = validateAuthDataWithCorruptionDetection(sessionAuthData);
+      
+      if (validation.isValid) {
+        // Update auth version to current
+        updateAuthVersion(AUTH_STATE_VERSIONS.CURRENT);
+        
+        // For demo mode, return demo user
+        if (session.isDemoMode) {
+          return sessionAuthData;
+        }
+        
+        // For regular users, validate that user still exists
+        if (validateUserSession(session.userId)) {
+          return sessionAuthData;
+        } else {
+          logAuth.session('user no longer exists, clearing session', session.userId);
+          clearSession();
+          return null;
+        }
+      } else {
+        logAuth.warn('Session data validation failed', validation.issues);
+        
+        // Check if the only issue is version mismatch - allow migration
+        const onlyVersionIssue = validation.issues.length === 1 && 
+          validation.issues[0].includes('Auth state version outdated');
+        
+        if (onlyVersionIssue) {
+          logAuth.info('Auth state version outdated, allowing migration', validation.issues);
+          updateAuthVersion(AUTH_STATE_VERSIONS.CURRENT);
+          
+          // For demo mode, return demo user
+          if (session.isDemoMode) {
+            return sessionAuthData;
+          }
+          
+          // For regular users, validate that user still exists
+          if (validateUserSession(session.userId)) {
+            return sessionAuthData;
+          } else {
+            logAuth.session('user no longer exists, clearing session', session.userId);
+            clearSession();
+            return null;
+          }
+        } else if (validation.canRecover) {
+          logAuth.info('Attempting to recover from backup sources');
+          const recovered = recoverAuthStateFromBackups();
+          if (recovered) {
+            updateAuthVersion(AUTH_STATE_VERSIONS.CURRENT);
+            return recovered;
+          }
+        }
+        
+        // Clean up corrupted data
+        cleanupCorruptedAuthData();
+        return null;
+      }
+    }
+    
+    // If no valid session, try to restore from localStorage as fallback
+    const storedAuth = localStorage.getItem('task_manager_auth_state');
+    if (storedAuth) {
+      try {
+        const authData = JSON.parse(storedAuth);
+        const validation = validateAuthDataWithCorruptionDetection(authData);
+        
+        if (validation.isValid) {
+          logAuth.info('Restored auth state from localStorage');
+          updateAuthVersion(AUTH_STATE_VERSIONS.CURRENT);
+          return authData;
+        } else {
+          logAuth.warn('Invalid auth data found in localStorage', validation.issues);
+          
+          // Check if the only issue is version mismatch - allow migration
+          const onlyVersionIssue = validation.issues.length === 1 && 
+            validation.issues[0].includes('Auth state version outdated');
+          
+          if (onlyVersionIssue) {
+            logAuth.info('Auth state version outdated, allowing migration from localStorage', validation.issues);
+            updateAuthVersion(AUTH_STATE_VERSIONS.CURRENT);
+            return authData;
+          } else if (validation.canRecover) {
+            logAuth.info('Attempting to recover from backup sources');
+            const recovered = recoverAuthStateFromBackups();
+            if (recovered) {
+              updateAuthVersion(AUTH_STATE_VERSIONS.CURRENT);
+              return recovered;
+            }
+          }
+          
+          // Clean up corrupted data
+          cleanupCorruptedAuthData();
+        }
+      } catch (error) {
+        logAuth.error('Error parsing stored auth data', error);
+        localStorage.removeItem('task_manager_auth_state');
+      }
+    }
+    
+    // If no valid auth state found, try recovery from backups
+    logAuth.info('No valid auth state found, attempting recovery from backups');
+    const recovered = recoverAuthStateFromBackups();
+    if (recovered) {
+      updateAuthVersion(AUTH_STATE_VERSIONS.CURRENT);
+      return recovered;
+    }
+    
+    // Initialize auth version if not set
+    if (getStoredAuthVersion() === AUTH_STATE_VERSIONS.LEGACY) {
+      updateAuthVersion(AUTH_STATE_VERSIONS.CURRENT);
+    }
+    
+    return null;
+  } catch (error) {
+    logAuth.error('Error restoring auth state', error);
+    return null;
+  }
+}
+
+/**
+ * Save authentication state to storage for persistence with version tracking and backup
+ */
+export function saveAuthState(authState: {
+  user: User | null;
+  isAuthenticated: boolean;
+  isDemoMode: boolean;
+}): void {
+  try {
+    // Validate auth state before saving (allow migration for real users)
+    const validation = validateAuthDataWithCorruptionDetection(authState);
+    if (!validation.isValid && !authState.isDemoMode) {
+      // Check if the only issue is version mismatch - allow migration
+      const onlyVersionIssue = validation.issues.length === 1 && 
+        validation.issues[0].includes('Auth state version outdated');
+      
+      if (onlyVersionIssue) {
+        logAuth.info('Auth state version outdated, allowing save for migration', validation.issues);
+        // Continue with save to allow migration
+      } else {
+        logAuth.warn('Attempting to save invalid auth state', validation.issues);
+        return;
+      }
+    } else if (!validation.isValid && authState.isDemoMode) {
+      logAuth.info('Demo mode auth state has validation issues, but allowing save', validation.issues);
+    }
+    
+    // Save to localStorage as primary storage
+    localStorage.setItem('task_manager_auth_state', JSON.stringify(authState));
+    
+    // Create backup in sessionStorage
+    sessionStorage.setItem('task_manager_auth_state', JSON.stringify(authState));
+    
+    // Create additional backup with timestamp
+    const backupKey = `task_manager_auth_backup_${Date.now()}`;
+    localStorage.setItem(backupKey, JSON.stringify(authState));
+    
+    // Clean up old backups (keep only last 3)
+    const backupKeys = Object.keys(localStorage).filter(key => 
+      key.startsWith('task_manager_auth_backup_')
+    ).sort();
+    
+    if (backupKeys.length > 3) {
+      const keysToRemove = backupKeys.slice(0, backupKeys.length - 3);
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+    }
+    
+    // Update auth version to current
+    updateAuthVersion(AUTH_STATE_VERSIONS.CURRENT);
+    
+    logAuth.info('Saved auth state with backup and version tracking');
+  } catch (error) {
+    logAuth.error('Error saving auth state to storage', error);
+  }
+}
+
+/**
+ * Clear authentication state from storage including version tracking
+ */
+export function clearAuthState(): void {
+  try {
+    // Clear session data
+    clearSession();
+    
+    // Clear localStorage auth state
+    localStorage.removeItem('task_manager_auth_state');
+    sessionStorage.removeItem('task_manager_auth_state');
+    
+    // Clear version tracking
+    localStorage.removeItem(AUTH_VERSION_KEY);
+    sessionStorage.removeItem(AUTH_VERSION_KEY);
+    
+    // Clear deployment version
+    localStorage.removeItem(DEPLOYMENT_VERSION_KEY);
+    sessionStorage.removeItem(DEPLOYMENT_VERSION_KEY);
+    
+    // Clear all backup auth states
+    const backupKeys = Object.keys(localStorage).filter(key => 
+      key.startsWith('task_manager_auth_backup_')
+    );
+    backupKeys.forEach(key => localStorage.removeItem(key));
+    
+    logAuth.info('Cleared auth state and version tracking from storage');
+  } catch (error) {
+    logAuth.error('Error clearing auth state', error);
+  }
+}
+
+/**
+ * Get current deployment version
+ */
+function getCurrentDeploymentVersion(): string {
+  return CURRENT_DEPLOYMENT_VERSION;
+}
+
+/**
+ * Get stored deployment version
+ */
+function getStoredDeploymentVersion(): string | null {
+  try {
+    return localStorage.getItem(DEPLOYMENT_VERSION_KEY) || sessionStorage.getItem(DEPLOYMENT_VERSION_KEY);
+  } catch (error) {
+    logAuth.warn('Failed to get stored deployment version', error);
+    return null;
+  }
+}
+
+/**
+ * Update stored deployment version
+ */
+function updateDeploymentVersion(): void {
+  try {
+    const currentVersion = getCurrentDeploymentVersion();
+    localStorage.setItem(DEPLOYMENT_VERSION_KEY, currentVersion);
+    sessionStorage.setItem(DEPLOYMENT_VERSION_KEY, currentVersion);
+    logAuth.info('Updated deployment version', currentVersion);
+  } catch (error) {
+    logAuth.error('Failed to update deployment version', error);
+  }
+}
+
+/**
+ * Check if deployment version has changed (indicating a new deployment)
+ */
+function hasDeploymentChanged(): boolean {
+  const storedVersion = getStoredDeploymentVersion();
+  const currentVersion = getCurrentDeploymentVersion();
+  
+  if (!storedVersion) {
+    // First time running, update version
+    updateDeploymentVersion();
+    return false;
+  }
+  
+  const changed = storedVersion !== currentVersion;
+  if (changed) {
+    logAuth.info('Deployment version changed', { from: storedVersion, to: currentVersion });
+    updateDeploymentVersion();
+  }
+  
+  return changed;
+}
+
+/**
+ * Get stored authentication state version
+ */
+function getStoredAuthVersion(): number {
+  try {
+    const version = localStorage.getItem(AUTH_VERSION_KEY) || sessionStorage.getItem(AUTH_VERSION_KEY);
+    return version ? parseInt(version, 10) : AUTH_STATE_VERSIONS.LEGACY;
+  } catch (error) {
+    logAuth.warn('Failed to get stored auth version', error);
+    return AUTH_STATE_VERSIONS.LEGACY;
+  }
+}
+
+/**
+ * Update stored authentication state version
+ */
+function updateAuthVersion(version: number): void {
+  try {
+    localStorage.setItem(AUTH_VERSION_KEY, version.toString());
+    sessionStorage.setItem(AUTH_VERSION_KEY, version.toString());
+    logAuth.info('Updated auth version', version);
+  } catch (error) {
+    logAuth.error('Failed to update auth version', error);
+  }
+}
+
+/**
+ * Enhanced validation of stored authentication data with corruption detection
+ */
+function validateAuthDataWithCorruptionDetection(authData: unknown): {
+  isValid: boolean;
+  isCorrupted: boolean;
+  issues: string[];
+  canRecover: boolean;
+} {
+  const issues: string[] = [];
+  let isCorrupted = false;
+  let canRecover = true;
+  
+  try {
+    // Check if authData has the required structure
+    if (!authData || typeof authData !== 'object') {
+      issues.push('Invalid data structure: not an object');
+      isCorrupted = true;
+      canRecover = false;
+      return { isValid: false, isCorrupted, issues, canRecover };
+    }
+    
+    const auth = authData as Record<string, unknown>;
+    
+    // Check for required authentication properties
+    if (typeof auth.isAuthenticated !== 'boolean') {
+      issues.push('Missing or invalid isAuthenticated property');
+      isCorrupted = true;
+    }
+    
+    if (typeof auth.isDemoMode !== 'boolean') {
+      issues.push('Missing or invalid isDemoMode property');
+      isCorrupted = true;
+    }
+    
+    // If authenticated, user object must exist and be valid
+    if (auth.isAuthenticated) {
+      if (!auth.user || typeof auth.user !== 'object') {
+        issues.push('Missing or invalid user object for authenticated state');
+        isCorrupted = true;
+        canRecover = false;
+      } else {
+        const user = auth.user as Record<string, unknown>;
+        
+        // Validate user object properties
+        if (!user.id || typeof user.id !== 'string') {
+          issues.push('Missing or invalid user ID');
+          isCorrupted = true;
+        }
+        
+        if (!user.email || typeof user.email !== 'string') {
+          issues.push('Missing or invalid user email');
+          isCorrupted = true;
+        }
+        
+        if (!user.name || typeof user.name !== 'string') {
+          issues.push('Missing or invalid user name');
+          isCorrupted = true;
+        }
+        
+        // Check if user still exists in storage (for non-demo users)
+        if (!auth.isDemoMode && user.id && typeof user.id === 'string') {
+          if (!validateUserSession(user.id)) {
+            issues.push('User no longer exists in storage');
+            isCorrupted = true;
+            canRecover = false;
+          }
+        }
+      }
+    }
+    
+    // Check for deployment version compatibility (but allow migration for real users)
+    const storedVersion = getStoredAuthVersion();
+    if (storedVersion < AUTH_STATE_VERSIONS.CURRENT && !auth.isDemoMode) {
+      // For real users, mark as needing migration but don't treat as corrupted
+      issues.push(`Auth state version outdated (${storedVersion} < ${AUTH_STATE_VERSIONS.CURRENT}) - will migrate`);
+      // Don't mark as corrupted for version mismatches - allow migration
+    }
+    
+    // Check for deployment changes that might cause corruption (but allow demo mode)
+    if (hasDeploymentChanged() && !auth.isDemoMode) {
+      issues.push('Deployment version changed, potential corruption detected');
+      isCorrupted = true;
+    }
+    
+    // Check for session timeout
+    const session = getSession();
+    if (session && !isSessionValid(session)) {
+      issues.push('Session expired');
+      isCorrupted = true;
+    }
+    
+    return {
+      isValid: !isCorrupted && issues.length === 0,
+      isCorrupted,
+      issues,
+      canRecover
+    };
+    
+  } catch (error) {
+    logAuth.error('Error during auth data validation', error);
+    return {
+      isValid: false,
+      isCorrupted: true,
+      issues: [`Validation error: ${error instanceof Error ? error.message : 'Unknown error'}`],
+      canRecover: false
+    };
+  }
+}
+
+/**
+ * Clean up corrupted authentication data
+ */
+function cleanupCorruptedAuthData(): void {
+  try {
+    logAuth.info('Cleaning up corrupted authentication data');
+    
+    // Clear session data
+    clearSession();
+    
+    // Clear localStorage auth state
+    localStorage.removeItem('task_manager_auth_state');
+    sessionStorage.removeItem('task_manager_auth_state');
+    
+    // Clear version tracking
+    localStorage.removeItem(AUTH_VERSION_KEY);
+    sessionStorage.removeItem(AUTH_VERSION_KEY);
+    
+    // Clear deployment version
+    localStorage.removeItem(DEPLOYMENT_VERSION_KEY);
+    sessionStorage.removeItem(DEPLOYMENT_VERSION_KEY);
+    
+    // Clear any potentially corrupted storage keys
+    const keysToClear = [
+      'task-manager-state',
+      'task-manager-demo-state',
+      'task_manager_session',
+      'task_manager_auth_state'
+    ];
+    
+    keysToClear.forEach(key => {
+      try {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+      } catch (error) {
+        logAuth.warn(`Failed to clear key ${key}`, error);
+      }
+    });
+    
+    logAuth.info('Corrupted authentication data cleanup completed');
+  } catch (error) {
+    logAuth.error('Error during corrupted auth data cleanup', error);
+  }
+}
+
+/**
+ * Recover authentication state from backup sources
+ */
+function recoverAuthStateFromBackups(): {
+  user: User | null;
+  isAuthenticated: boolean;
+  isDemoMode: boolean;
+} | null {
+  try {
+    logAuth.info('Attempting to recover authentication state from backups');
+    
+    // Try to recover from session data first
+    const session = getSession();
+    if (session && isSessionValid(session)) {
+      logAuth.info('Recovered from session data', session.userId);
+      
       if (session.isDemoMode) {
         return {
           user: {
@@ -961,7 +1690,6 @@ export function restoreAuthState(): {
         };
       }
       
-      // For regular users, validate that user still exists
       if (validateUserSession(session.userId)) {
         return {
           user: {
@@ -973,68 +1701,38 @@ export function restoreAuthState(): {
           isAuthenticated: true,
           isDemoMode: false
         };
-      } else {
-        logAuth.session('user no longer exists, clearing session', session.userId);
-        clearSession();
-        return null;
       }
     }
     
-    // If no valid session, try to restore from localStorage as fallback
-    const storedAuth = localStorage.getItem('task_manager_auth_state');
-    if (storedAuth) {
+    // Try to recover from localStorage backup
+    const backupKeys = [
+      'task_manager_auth_backup',
+      'task_manager_auth_state_backup',
+      'auth_state_backup'
+    ];
+    
+    for (const key of backupKeys) {
       try {
-        const authData = JSON.parse(storedAuth);
-        if (isValidAuthData(authData)) {
-          logAuth.info('Restored auth state from localStorage');
-          return authData;
-        } else {
-          logAuth.warn('Invalid auth data found in localStorage, clearing');
-          localStorage.removeItem('task_manager_auth_state');
+        const backupData = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (backupData) {
+          const authData = JSON.parse(backupData);
+          const validation = validateAuthDataWithCorruptionDetection(authData);
+          
+          if (validation.isValid) {
+            logAuth.info('Recovered from backup', key);
+            return authData;
+          }
         }
       } catch (error) {
-        logAuth.error('Error parsing stored auth data', error);
-        localStorage.removeItem('task_manager_auth_state');
+        logAuth.warn(`Failed to recover from backup ${key}`, error);
       }
     }
     
+    logAuth.info('No valid backup authentication state found');
     return null;
+    
   } catch (error) {
-    logAuth.error('Error restoring auth state', error);
+    logAuth.error('Error during auth state recovery', error);
     return null;
-  }
-}
-
-/**
- * Save authentication state to storage for persistence
- */
-export function saveAuthState(authState: {
-  user: User | null;
-  isAuthenticated: boolean;
-  isDemoMode: boolean;
-}): void {
-  try {
-    // Save to localStorage as backup
-    localStorage.setItem('task_manager_auth_state', JSON.stringify(authState));
-    logAuth.info('Saved auth state to localStorage');
-  } catch (error) {
-    logAuth.error('Error saving auth state to localStorage', error);
-  }
-}
-
-/**
- * Clear authentication state from storage
- */
-export function clearAuthState(): void {
-  try {
-    // Clear session data
-    clearSession();
-    
-    // Clear localStorage auth state
-    localStorage.removeItem('task_manager_auth_state');
-    
-    logAuth.info('Cleared auth state from storage');
-  } catch (error) {
-    logAuth.error('Error clearing auth state', error);
   }
 }

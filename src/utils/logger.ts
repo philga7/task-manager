@@ -104,6 +104,10 @@ export const logStorage = {
   
   warn: (message: string, ...args: unknown[]): void => {
     logger.warn(`Storage: ${message}`, ...args);
+  },
+  
+  info: (message: string, ...args: unknown[]): void => {
+    logger.info(`Storage: ${message}`, ...args);
   }
 };
 
