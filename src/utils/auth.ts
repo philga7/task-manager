@@ -771,6 +771,13 @@ export function testAuthCorruptionDetection(): {
       error: typeof currentVersion !== 'string' || currentVersion.length === 0 ? 'Deployment version tracking failed' : undefined
     });
     
+    // Test 1.5: Check stored version functionality
+    tests.push({
+      name: 'Stored deployment version functionality',
+      passed: storedVersion === null || (typeof storedVersion === 'string' && storedVersion.length > 0),
+      error: storedVersion !== null && (typeof storedVersion !== 'string' || storedVersion.length === 0) ? 'Stored deployment version functionality failed' : undefined
+    });
+    
     // Test 2: Check auth version tracking
     const authVersion = getStoredAuthVersion();
     tests.push({

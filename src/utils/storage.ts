@@ -8,7 +8,6 @@ const DEMO_MIGRATION_FLAG = 'demo:migration-completed';
 
 // Deployment tracking keys
 const DEPLOYMENT_VERSION_KEY = 'task_manager_deployment_version';
-const AUTH_VERSION_KEY = 'task_manager_auth_version';
 
 // Known storage keys that need to be migrated
 const KNOWN_STORAGE_KEYS = [
