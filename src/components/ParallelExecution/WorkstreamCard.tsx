@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Workstream } from '../../types';
 import { Card } from '../UI/Card';
 import { AgentStatusBadge } from './AgentStatusBadge';
@@ -17,7 +17,7 @@ export function WorkstreamCard({
   onToggleExpand,
   className = '' 
 }: WorkstreamCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
+
 
   const statusConfig = {
     pending: { color: 'text-stone-400', icon: '⏳' },
@@ -53,8 +53,7 @@ export function WorkstreamCard({
     <Card 
       className={`transition-all duration-250 ${className}`}
       hover={true}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+
     >
       <div className="space-y-4">
         {/* Header */}

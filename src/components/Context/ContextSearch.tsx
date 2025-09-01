@@ -48,7 +48,7 @@ export function ContextSearch({
     onFiltersChange({ ...filters, searchTerm });
   };
 
-  const handleFilterChange = (key: keyof ContextSearchFilter, value: any) => {
+  const handleFilterChange = (key: keyof ContextSearchFilter, value: string | string[] | undefined) => {
     onFiltersChange({ ...filters, [key]: value });
   };
 

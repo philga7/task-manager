@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   GitHubIssue, 
   GitHubSyncState, 
   GitHubIssueFormData, 
   GitHubUser, 
   GitHubLabel, 
-  GitHubMilestone,
-  Task 
+  GitHubMilestone
 } from '../../types';
 import { IssueList } from './IssueList';
 import { IssueForm } from './IssueForm';
@@ -18,17 +17,14 @@ import {
   Link, 
   ExternalLink, 
   AlertCircle,
-  CheckCircle,
   Clock
 } from 'lucide-react';
-import { useApp } from '../../context/useApp';
 
 interface GitHubSyncPanelProps {
   onClose?: () => void;
 }
 
 export function GitHubSyncPanel({ onClose }: GitHubSyncPanelProps) {
-  const { state, dispatch } = useApp();
   
   // Local state for GitHub sync
   const [syncState, setSyncState] = useState<GitHubSyncState>({
@@ -56,7 +52,7 @@ export function GitHubSyncPanel({ onClose }: GitHubSyncPanelProps) {
   const [milestones, setMilestones] = useState<GitHubMilestone[]>([]);
 
   // Mock data for demo mode (in real implementation, this would come from GitHub API)
-  const mockIssues: GitHubIssue[] = [
+  const mockIssues: GitHubIssue[] = useMemo(() => [
     {
       id: 1,
       number: 1,
@@ -148,9 +144,9 @@ export function GitHubSyncPanel({ onClose }: GitHubSyncPanelProps) {
       localStatus: 'pending',
       lastSyncAt: new Date()
     }
-  ];
+  ], []);
 
-  const mockAssignees: GitHubUser[] = [
+  const mockAssignees: GitHubUser[] = useMemo(() => [
     {
       login: 'philga7',
       id: 1,
@@ -171,15 +167,15 @@ export function GitHubSyncPanel({ onClose }: GitHubSyncPanelProps) {
       type: 'User',
       site_admin: false
     }
-  ];
+  ], []);
 
-  const mockLabels: GitHubLabel[] = [
+  const mockLabels: GitHubLabel[] = useMemo(() => [
     { id: 1, node_id: '1', url: '', name: 'enhancement', color: '84b6eb', default: false },
     { id: 2, node_id: '2', url: '', name: 'bug', color: 'd73a4a', default: false },
     { id: 3, node_id: '3', url: '', name: 'documentation', color: '0075ca', default: false }
-  ];
+  ], []);
 
-  const mockMilestones: GitHubMilestone[] = [
+  const mockMilestones: GitHubMilestone[] = useMemo(() => [
     {
       url: '',
       html_url: '',
@@ -196,12 +192,12 @@ export function GitHubSyncPanel({ onClose }: GitHubSyncPanelProps) {
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-15T00:00:00Z'
     }
-  ];
+  ], [mockAssignees]);
 
   // Load initial data
   useEffect(() => {
     loadGitHubData();
-  }, []);
+  }, [loadGitHubData]);
 
   // Mock function to load GitHub data
   const loadGitHubData = useCallback(async () => {
@@ -221,14 +217,14 @@ export function GitHubSyncPanel({ onClose }: GitHubSyncPanelProps) {
       setAssignees(mockAssignees);
       setLabels(mockLabels);
       setMilestones(mockMilestones);
-    } catch (error) {
+    } catch {
       setSyncState(prev => ({
         ...prev,
         isLoading: false,
         error: 'Failed to load GitHub issues'
       }));
     }
-  }, []);
+  }, [mockIssues, mockAssignees, mockLabels, mockMilestones]);
 
   // Handle filter changes
   const handleFilterChange = useCallback((newFilters: Partial<GitHubSyncState['filters']>) => {
@@ -306,7 +302,7 @@ export function GitHubSyncPanel({ onClose }: GitHubSyncPanelProps) {
     } finally {
       setFormLoading(false);
     }
-  }, [editingIssue, syncState.issues, assignees, labels, milestones]);
+  }, [editingIssue, syncState.issues, assignees, labels, milestones, mockAssignees]);
 
   // Handle task linking
   const handleLinkTask = useCallback((issue: GitHubIssue) => {
@@ -346,7 +342,7 @@ export function GitHubSyncPanel({ onClose }: GitHubSyncPanelProps) {
         syncInProgress: false,
         lastSyncAt: new Date()
       }));
-    } catch (error) {
+    } catch {
       setSyncState(prev => ({
         ...prev,
         syncInProgress: false,

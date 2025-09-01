@@ -165,7 +165,7 @@ const mockActivities: AgentActivity[] = [
 
 export function AgentStatusDashboard({ className = '' }: AgentStatusDashboardProps) {
   const [agents, setAgents] = useState<Agent[]>(mockAgents);
-  const [activities, setActivities] = useState<AgentActivity[]>(mockActivities);
+  const [activities] = useState<AgentActivity[]>(mockActivities);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'running' | 'idle' | 'error' | 'paused'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'status' | 'performance' | 'lastActivity'>('name');
@@ -202,9 +202,10 @@ export function AgentStatusDashboard({ className = '' }: AgentStatusDashboardPro
       switch (sortBy) {
         case 'name':
           return a.name.localeCompare(b.name);
-        case 'status':
+        case 'status': {
           const statusOrder = { running: 4, idle: 3, paused: 2, error: 1, completed: 0 };
           return statusOrder[b.status] - statusOrder[a.status];
+        }
         case 'performance':
           return b.performance.successRate - a.performance.successRate;
         case 'lastActivity':
@@ -343,7 +344,7 @@ export function AgentStatusDashboard({ className = '' }: AgentStatusDashboardPro
           <span className="text-sm text-stone-400">Sort by:</span>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => setSortBy(e.target.value as 'name' | 'status' | 'performance' | 'lastActivity')}
             className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-1.5 text-sm text-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-500"
           >
             <option value="name">Name</option>

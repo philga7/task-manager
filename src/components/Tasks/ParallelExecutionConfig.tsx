@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Agent, Workstream, WorkstreamDependency } from '../../types';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
-import { Users, GitBranch, Clock, Settings, Plus, Trash2 } from 'lucide-react';
+import { Users, GitBranch, Clock, Plus, Trash2 } from 'lucide-react';
 
 interface ParallelExecutionConfigProps {
   isEnabled: boolean;

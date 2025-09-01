@@ -64,7 +64,7 @@ export function importBackupData(backupData: Record<string, string>): {
             localStorage.setItem(key, decoded);
             importedKeys.push(key);
             logStorage.info(`Imported base64 decoded data for key: ${key}`);
-          } catch (decodeError) {
+          } catch {
             // If base64 decode fails, store as-is
             localStorage.setItem(key, data);
             importedKeys.push(key);

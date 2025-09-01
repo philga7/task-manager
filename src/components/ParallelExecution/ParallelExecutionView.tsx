@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Workstream, Agent, ParallelExecutionState } from '../../types';
+import { Workstream, Agent } from '../../types';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
 import { WorkstreamCard } from './WorkstreamCard';
@@ -99,7 +99,7 @@ const mockWorkstreams: Workstream[] = [
 
 export function ParallelExecutionView({ className = '' }: ParallelExecutionViewProps) {
   const [workstreams, setWorkstreams] = useState<Workstream[]>(mockWorkstreams);
-  const [agents, setAgents] = useState<Agent[]>(mockAgents);
+  const [agents] = useState<Agent[]>(mockAgents);
   const [expandedWorkstreams, setExpandedWorkstreams] = useState<Set<string>>(new Set());
   const [filterStatus, setFilterStatus] = useState<'all' | 'running' | 'pending' | 'completed' | 'blocked'>('all');
   const [sortBy, setSortBy] = useState<'priority' | 'progress' | 'created' | 'name'>('priority');
@@ -135,9 +135,10 @@ export function ParallelExecutionView({ className = '' }: ParallelExecutionViewP
 
     return filtered.sort((a, b) => {
       switch (sortBy) {
-        case 'priority':
+        case 'priority': {
           const priorityOrder = { high: 3, medium: 2, low: 1 };
           return priorityOrder[b.priority] - priorityOrder[a.priority];
+        }
         case 'progress':
           return b.progress - a.progress;
         case 'created':
@@ -244,7 +245,7 @@ export function ParallelExecutionView({ className = '' }: ParallelExecutionViewP
           <span className="text-sm text-stone-400">Sort by:</span>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => setSortBy(e.target.value as 'priority' | 'progress' | 'created' | 'name')}
             className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-1.5 text-sm text-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-500"
           >
             <option value="priority">Priority</option>

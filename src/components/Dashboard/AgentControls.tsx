@@ -151,7 +151,7 @@ export function AgentControls({
                 <label className="block text-xs text-stone-400 mb-1">Priority</label>
                 <select
                   value={config.priority}
-                  onChange={(e) => setConfig({ ...config, priority: e.target.value as any })}
+                  onChange={(e) => setConfig({ ...config, priority: e.target.value as 'low' | 'normal' | 'high' })}
                   className="w-full px-3 py-1.5 bg-stone-700 border border-stone-600 rounded text-sm text-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-500"
                 >
                   <option value="low">Low</option>
@@ -177,7 +177,7 @@ export function AgentControls({
               <label className="block text-xs text-stone-400 mb-1">Log Level</label>
               <select
                 value={config.logLevel}
-                onChange={(e) => setConfig({ ...config, logLevel: e.target.value as any })}
+                onChange={(e) => setConfig({ ...config, logLevel: e.target.value as 'debug' | 'info' | 'warn' | 'error' })}
                 className="w-full px-3 py-1.5 bg-stone-700 border border-stone-600 rounded text-sm text-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-500"
               >
                 <option value="debug">Debug</option>

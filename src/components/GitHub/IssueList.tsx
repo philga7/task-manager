@@ -114,7 +114,7 @@ export function IssueList({
               <label className="block text-sm font-medium text-stone-300 mb-2">Status</label>
               <select
                 value={filters.state}
-                onChange={(e) => onFilterChange({ state: e.target.value as any })}
+                onChange={(e) => onFilterChange({ state: e.target.value as 'all' | 'open' | 'closed' })}
                 className="w-full px-3 py-2 bg-stone-700 border border-stone-600 rounded-lg text-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-500"
               >
                 <option value="all">All Issues</option>

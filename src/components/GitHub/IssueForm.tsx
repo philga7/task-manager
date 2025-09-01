@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { GitHubIssue, GitHubIssueFormData, GitHubUser, GitHubLabel, GitHubMilestone } from '../../types';
-import { X, Save, GitBranch, User, Tag, Calendar, AlertCircle } from 'lucide-react';
+import { X, Save, GitBranch, AlertCircle } from 'lucide-react';
 
 interface IssueFormProps {
   issue?: GitHubIssue;
@@ -63,7 +63,7 @@ export function IssueForm({
   };
 
   // Handle input changes
-  const handleInputChange = (field: keyof GitHubIssueFormData, value: any) => {
+  const handleInputChange = (field: keyof GitHubIssueFormData, value: string | string[] | number | undefined) => {
     setFormData(prev => ({
       ...prev,
       [field]: value

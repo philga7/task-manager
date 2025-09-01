@@ -272,7 +272,7 @@ export interface GitHubIssue {
   body_html?: string;
   body_text?: string;
   timeline_url: string;
-  performed_via_github_app?: any;
+  performed_via_github_app?: boolean;
   state_reason?: string;
   draft?: boolean;
   reactions?: GitHubReactions;
@@ -356,7 +356,7 @@ export interface GitHubComment {
   updated_at: string;
   issue_url: string;
   author_association: string;
-  performed_via_github_app?: any;
+  performed_via_github_app?: boolean;
   reactions?: GitHubReactions;
 }
 

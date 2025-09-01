@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Task, Agent, Workstream, WorkstreamDependency } from '../../types';
 import { Button } from '../UI/Button';
 import { Card } from '../UI/Card';
-import { X, Calendar, Flag, Tag, Folder, GitBranch } from 'lucide-react';
+import { X, Calendar, Flag, Tag, Folder } from 'lucide-react';
 import { useApp } from '../../context/useApp';
 import { ParallelExecutionConfig } from './ParallelExecutionConfig';
 
