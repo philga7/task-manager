@@ -1,0 +1,1 @@
+export { CCPMSyncConfigComponent } from './CCPMSyncConfig';

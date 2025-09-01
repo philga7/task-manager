@@ -7,7 +7,7 @@ export function GitHubPage() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-stone-100">GitHub Integration</h1>
-          <p className="text-stone-400">Manage GitHub issues and sync with local tasks</p>
+          <p className="text-stone-400">GitHub Issues have been closed out - integration is currently disabled</p>
         </div>
         
         <div className="h-[calc(100vh-200px)]">

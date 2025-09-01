@@ -3,9 +3,16 @@ Command handlers for CCPM CLI operations
 """
 import httpx
 import asyncio
+import os
 from typing import Dict, Any, Optional
 from datetime import datetime
 from .parser import ParsedCommand
+
+# Import GitHub service and epic templates
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'services'))
+from GitHubService import GitHubService
+from EpicTemplates import EpicTemplateManager
 
 
 class CCPMCommandHandler:
@@ -14,6 +21,17 @@ class CCPMCommandHandler:
     def __init__(self, base_url: str = "http://localhost:8000"):
         self.base_url = base_url
         self.client = httpx.AsyncClient(timeout=30.0)
+        
+        # Initialize GitHub service and templates
+        self.github_service = None
+        self.epic_templates = EpicTemplateManager()
+        
+        # Try to initialize GitHub service if credentials are available
+        try:
+            if os.getenv("GITHUB_API_TOKEN") and os.getenv("GITHUB_REPO_NAME"):
+                self.github_service = GitHubService()
+        except Exception as e:
+            print(f"Warning: GitHub service not initialized: {e}")
     
     async def execute_command(self, parsed: ParsedCommand) -> Dict[str, Any]:
         """
@@ -32,6 +50,10 @@ class CCPMCommandHandler:
                 return await self._handle_epic_command(parsed)
             elif parsed.command == "issue":
                 return await self._handle_issue_command(parsed)
+            elif parsed.command == "github":
+                return await self._handle_github_command(parsed)
+            elif parsed.command == "template":
+                return await self._handle_template_command(parsed)
             elif parsed.command == "next":
                 return await self._handle_next_command(parsed)
             elif parsed.command == "status":
@@ -103,6 +125,328 @@ class CCPMCommandHandler:
             return {
                 "success": False,
                 "error": f"Unknown issue subcommand: {parsed.subcommand}",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+    
+    async def _handle_github_command(self, parsed: ParsedCommand) -> Dict[str, Any]:
+        """Handle GitHub integration commands"""
+        if not self.github_service:
+            return {
+                "success": False,
+                "error": "GitHub service not available. Please set GITHUB_API_TOKEN and GITHUB_REPO_NAME environment variables.",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        
+        if parsed.subcommand == "test":
+            return await self._test_github_connection()
+        elif parsed.subcommand == "create-epic":
+            return await self._create_github_epic(parsed.arguments)
+        elif parsed.subcommand == "create-subtask":
+            return await self._create_github_subtask(parsed.arguments)
+        elif parsed.subcommand == "list-epics":
+            return await self._list_github_epics(parsed.arguments)
+        elif parsed.subcommand == "list-subtasks":
+            return await self._list_github_subtasks(parsed.arguments)
+        elif parsed.subcommand == "update-issue":
+            return await self._update_github_issue(parsed.arguments)
+        else:
+            return {
+                "success": False,
+                "error": f"Unknown GitHub subcommand: {parsed.subcommand}",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+    
+    async def _handle_template_command(self, parsed: ParsedCommand) -> Dict[str, Any]:
+        """Handle epic template commands"""
+        if parsed.subcommand == "list":
+            return await self._list_epic_templates()
+        elif parsed.subcommand == "show":
+            return await self._show_epic_template(parsed.arguments)
+        elif parsed.subcommand == "create-epic":
+            return await self._create_epic_from_template(parsed.arguments)
+        else:
+            return {
+                "success": False,
+                "error": f"Unknown template subcommand: {parsed.subcommand}",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+    
+    async def _test_github_connection(self) -> Dict[str, Any]:
+        """Test GitHub API connection"""
+        try:
+            result = await self.github_service.test_connection()
+            if result["success"]:
+                return {
+                    "success": True,
+                    "message": "GitHub connection test successful",
+                    "status": result,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": result["error"],
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"GitHub connection test failed: {str(e)}",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+    
+    async def _create_github_epic(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a GitHub epic issue"""
+        try:
+            title = arguments.get("title")
+            description = arguments.get("description")
+            labels = arguments.get("labels", [])
+            
+            if not title or not description:
+                return {
+                    "success": False,
+                    "error": "Title and description are required for epic creation",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            
+            epic = await self.github_service.create_epic_issue(title, description, labels)
+            
+            return {
+                "success": True,
+                "message": f"Epic created successfully",
+                "epic_id": epic["id"],
+                "epic": epic,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to create epic: {str(e)}",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+    
+    async def _create_github_subtask(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a GitHub subtask issue"""
+        try:
+            title = arguments.get("title")
+            description = arguments.get("description")
+            epic_issue = arguments.get("epic-issue")  # Use the correct key with hyphen
+            labels = arguments.get("labels", [])
+            assignees = arguments.get("assignees", [])
+            
+            # Convert epic_issue to integer if it's a string
+            if epic_issue and isinstance(epic_issue, str):
+                try:
+                    epic_issue = int(epic_issue)
+                except ValueError:
+                    return {
+                        "success": False,
+                        "error": f"Invalid epic_issue number: {epic_issue}",
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+            
+            if not title or not description or not epic_issue:
+                return {
+                    "success": False,
+                    "error": "Title, description, and epic_issue are required for subtask creation",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            
+            subtask = await self.github_service.create_subtask_issue(
+                title, description, epic_issue, labels, assignees
+            )
+            
+            return {
+                "success": True,
+                "message": f"Subtask created successfully",
+                "issue_id": subtask["id"],
+                "subtask": subtask,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to create subtask: {str(e)}",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+    
+    async def _list_github_epics(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """List GitHub epic issues"""
+        try:
+            state = arguments.get("state", "open")
+            epics = await self.github_service.get_epic_issues(state)
+            
+            return {
+                "success": True,
+                "message": f"Retrieved {len(epics)} epic issues",
+                "epics": epics,
+                "count": len(epics),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to list epics: {str(e)}",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+    
+    async def _list_github_subtasks(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """List GitHub subtask issues for an epic"""
+        try:
+            epic_issue = arguments.get("epic-issue")  # Use the correct key with hyphen
+            
+            if not epic_issue:
+                return {
+                    "success": False,
+                    "error": "epic_issue parameter is required",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            
+            subtasks = await self.github_service.get_epic_subtasks(epic_issue)
+            
+            return {
+                "success": True,
+                "message": f"Retrieved {len(subtasks)} subtasks for epic #{epic_issue}",
+                "issues": subtasks,
+                "count": len(subtasks),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to list subtasks: {str(e)}",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+    
+    async def _update_github_issue(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Update a GitHub issue status"""
+        try:
+            issue_number = arguments.get("issue_number")
+            state = arguments.get("state")
+            body_update = arguments.get("body_update")
+            
+            if not issue_number or not state:
+                return {
+                    "success": False,
+                    "error": "issue_number and state are required for issue updates",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            
+            updated_issue = await self.github_service.update_issue_status(
+                issue_number, state, body_update
+            )
+            
+            return {
+                "success": True,
+                "message": f"Issue #{issue_number} updated successfully",
+                "issue": updated_issue,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to update issue: {str(e)}",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+    
+    async def _list_epic_templates(self) -> Dict[str, Any]:
+        """List available epic templates"""
+        try:
+            templates = self.epic_templates.list_templates()
+            
+            return {
+                "success": True,
+                "message": f"Available epic templates: {len(templates)}",
+                "templates": templates,
+                "count": len(templates),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to list templates: {str(e)}",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+    
+    async def _show_epic_template(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Show details of a specific epic template"""
+        try:
+            template_name = arguments.get("template_name")
+            
+            if not template_name:
+                return {
+                    "success": False,
+                    "error": f"template_name parameter is required. Received arguments: {arguments}",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            
+            template = self.epic_templates.get_template(template_name)
+            
+            return {
+                "success": True,
+                "message": f"Template details for '{template_name}'",
+                "template": {
+                    "name": template.name,
+                    "description": template.description,
+                    "labels": template.labels,
+                    "subtask_templates": template.subtask_templates,
+                    "acceptance_criteria": template.acceptance_criteria,
+                    "estimated_complexity": template.estimated_complexity
+                },
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to show template: {str(e)}",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+    
+    async def _create_epic_from_template(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a GitHub epic from a template"""
+        try:
+            template_name = arguments.get("template_name")
+            custom_data = arguments.get("custom_data", {})
+            
+            if not template_name:
+                return {
+                    "success": False,
+                    "error": "template_name parameter is required",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            
+            # Create epic structure from template
+            epic_structure = self.epic_templates.create_epic_from_template(
+                template_name, custom_data
+            )
+            
+            # Create the epic in GitHub
+            epic = await self.github_service.create_epic_issue(
+                epic_structure["title"],
+                epic_structure["description"],
+                epic_structure["labels"]
+            )
+            
+            return {
+                "success": True,
+                "message": f"Epic created from template '{template_name}' successfully",
+                "epic_id": epic["id"],
+                "epic": epic,
+                "template_used": template_name,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to create epic from template: {str(e)}",
                 "timestamp": datetime.utcnow().isoformat()
             }
     

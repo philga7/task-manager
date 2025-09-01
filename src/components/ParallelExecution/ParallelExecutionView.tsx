@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Workstream, Agent } from '../../types';
+import { Workstream, Agent, CCPMWorkstream } from '../../types';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
 import { WorkstreamCard } from './WorkstreamCard';
 import { AgentStatusBadge } from './AgentStatusBadge';
+import { useCCPMSync } from '../../hooks/useCCPMSync';
 
 interface ParallelExecutionViewProps {
   className?: string;
@@ -104,6 +105,18 @@ export function ParallelExecutionView({ className = '' }: ParallelExecutionViewP
   const [filterStatus, setFilterStatus] = useState<'all' | 'running' | 'pending' | 'completed' | 'blocked'>('all');
   const [sortBy, setSortBy] = useState<'priority' | 'progress' | 'created' | 'name'>('priority');
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  
+  // CCPM integration
+  const { ccpmSync, getCCPMWorkstreams, migrateHighPriorityTasks } = useCCPMSync();
+  const [ccpmWorkstreams, setCcpmWorkstreams] = useState<CCPMWorkstream[]>([]);
+  const [showCCPMWorkstreams, setShowCCPMWorkstreams] = useState(false);
+
+  // Load CCPM workstreams when component mounts
+  useEffect(() => {
+    if (ccpmSync.isEnabled && ccpmSync.isConnected) {
+      loadCCPMWorkstreams();
+    }
+  }, [ccpmSync.isEnabled, ccpmSync.isConnected, loadCCPMWorkstreams]);
 
   // Simulate real-time updates
   useEffect(() => {
@@ -124,6 +137,28 @@ export function ParallelExecutionView({ className = '' }: ParallelExecutionViewP
 
     return () => clearInterval(interval);
   }, []);
+
+  // Load CCPM workstreams
+  const loadCCPMWorkstreams = useCallback(async () => {
+    try {
+      const workstreams = await getCCPMWorkstreams();
+      setCcpmWorkstreams(workstreams);
+    } catch (error) {
+      console.error('Failed to load CCPM workstreams:', error);
+    }
+  }, [getCCPMWorkstreams]);
+
+  // Handle task migration
+  const handleMigrateTasks = async () => {
+    try {
+      const result = await migrateHighPriorityTasks();
+      console.log(`Migration completed: ${result.migrated} tasks migrated`);
+      // Reload CCPM workstreams after migration
+      await loadCCPMWorkstreams();
+    } catch (error) {
+      console.error('Failed to migrate tasks:', error);
+    }
+  };
 
   // Filter and sort workstreams
   const filteredAndSortedWorkstreams = useMemo(() => {
@@ -187,8 +222,30 @@ export function ParallelExecutionView({ className = '' }: ParallelExecutionViewP
             Monitor agent workstreams and execution progress in real-time
           </p>
         </div>
-        <div className="text-sm text-stone-500">
-          Last updated: {lastUpdate.toLocaleTimeString()}
+        <div className="flex items-center space-x-4">
+          {ccpmSync.isEnabled && ccpmSync.isConnected && (
+            <div className="flex items-center space-x-2">
+              <Button 
+                onClick={handleMigrateTasks} 
+                variant="secondary" 
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Migrate to CCPM
+              </Button>
+              <Button 
+                onClick={() => setShowCCPMWorkstreams(!showCCPMWorkstreams)} 
+                variant="secondary" 
+                size="sm"
+                className={showCCPMWorkstreams ? 'bg-green-600 hover:bg-green-700' : 'bg-stone-600 hover:bg-stone-700'}
+              >
+                {showCCPMWorkstreams ? 'Hide CCPM' : 'Show CCPM'}
+              </Button>
+            </div>
+          )}
+          <div className="text-sm text-stone-500">
+            Last updated: {lastUpdate.toLocaleTimeString()}
+          </div>
         </div>
       </div>
 
@@ -277,6 +334,87 @@ export function ParallelExecutionView({ className = '' }: ParallelExecutionViewP
             No workstreams match the current filter criteria.
           </p>
         </Card>
+      )}
+
+      {/* CCPM Workstreams */}
+      {showCCPMWorkstreams && ccpmSync.isEnabled && ccpmSync.isConnected && (
+        <div className="space-y-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+              <span className="text-white text-xs font-bold">C</span>
+            </div>
+            <h3 className="text-lg font-semibold text-stone-200">CCPM Workstreams</h3>
+            <span className="text-sm text-stone-400">({ccpmWorkstreams.length} workstreams)</span>
+          </div>
+          
+          {ccpmWorkstreams.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {ccpmWorkstreams.map(workstream => (
+                <Card key={workstream.id} className="p-4 border-l-4 border-blue-500">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h4 className="font-medium text-stone-200">{workstream.name}</h4>
+                      <p className="text-sm text-stone-400">{workstream.description}</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        workstream.status === 'running' ? 'bg-blue-100 text-blue-800' :
+                        workstream.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        workstream.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        workstream.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {workstream.status}
+                      </span>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        workstream.priority === 'high' ? 'bg-red-100 text-red-800' :
+                        workstream.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {workstream.priority}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-stone-400">Duration:</span>
+                      <span className="text-stone-200 ml-2">
+                        {workstream.estimatedDuration} min
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-stone-400">Agents:</span>
+                      <span className="text-stone-200 ml-2">
+                        {workstream.assignedAgents.length}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-stone-400">Dependencies:</span>
+                      <span className="text-stone-200 ml-2">
+                        {workstream.dependencies.length}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-stone-400">Created:</span>
+                      <span className="text-stone-200 ml-2">
+                        {workstream.createdAt.toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="text-center py-8 border-l-4 border-blue-500">
+              <div className="text-4xl mb-2">🔗</div>
+              <h4 className="text-md font-medium text-stone-200 mb-2">No CCPM Workstreams</h4>
+              <p className="text-stone-400 text-sm">
+                No workstreams found in CCPM. Try migrating some high-priority tasks.
+              </p>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Agent Overview */}

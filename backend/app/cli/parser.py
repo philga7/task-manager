@@ -25,6 +25,8 @@ class CCPMCommandParser:
             "prd": ["new", "list", "show", "update"],
             "epic": ["start", "list", "show", "update", "complete"],
             "issue": ["start", "list", "show", "update", "complete"],
+            "github": ["test", "create-epic", "create-subtask", "list-epics", "list-subtasks", "update-issue"],
+            "template": ["list", "show", "create-epic"],
             "next": [],  # No subcommands for next
             "status": [],  # No subcommands for status
             "help": []  # No subcommands for help
@@ -96,15 +98,24 @@ class CCPMCommandParser:
                 continue
                 
             if part.startswith("--"):
-                # Flag
-                flag = part[2:]
-                flags.append(flag)
+                # Check if it's a key-value argument
+                if "=" in part:
+                    # Key-value argument: --key=value
+                    key_value = part[2:]  # Remove -- prefix
+                    key, value = key_value.split("=", 1)
+                    # Remove quotes from value
+                    value = value.strip("'\"")
+                    arguments[key] = value
+                else:
+                    # Flag: --flag
+                    flag = part[2:]
+                    flags.append(flag)
             elif part.startswith("-"):
                 # Short flag
                 flag = part[1:]
                 flags.append(flag)
             elif "=" in part:
-                # Key-value argument
+                # Key-value argument without -- prefix
                 key, value = part.split("=", 1)
                 # Remove quotes from value
                 value = value.strip("'\"")

@@ -498,3 +498,127 @@ export interface ContextState {
   isLoading: boolean;
   error: string | null;
 }
+
+// CCPM Integration Types
+export interface CCPMSyncState {
+  isEnabled: boolean;
+  isConnected: boolean;
+  lastSyncAt: Date | null;
+  syncInProgress: boolean;
+  error: string | null;
+  repository: string | null;
+  accessToken: string | null;
+  syncMode: 'manual' | 'auto' | 'disabled';
+  autoSyncInterval: number; // in minutes
+  conflictResolution: 'shrimp-wins' | 'ccpm-wins' | 'manual' | 'merge';
+  syncHistory: CCPMSyncEvent[];
+  workstreamMapping: WorkstreamMapping[];
+  taskMapping: TaskMapping[];
+}
+
+export interface CCPMSyncEvent {
+  id: string;
+  timestamp: Date;
+  type: 'sync-started' | 'sync-completed' | 'sync-failed' | 'conflict-detected' | 'workstream-migrated' | 'task-migrated';
+  details: string;
+  workstreamsAffected: number;
+  tasksAffected: number;
+  error?: string;
+  duration?: number; // in seconds
+}
+
+export interface WorkstreamMapping {
+  shrimpWorkstreamId: string;
+  ccpmWorkstreamId: string;
+  lastSyncAt: Date;
+  syncStatus: 'synced' | 'pending' | 'conflict' | 'error';
+  conflictDetails?: string;
+}
+
+export interface TaskMapping {
+  shrimpTaskId: string;
+  ccpmTaskId: string;
+  lastSyncAt: Date;
+  syncStatus: 'synced' | 'pending' | 'conflict' | 'error';
+  conflictDetails?: string;
+}
+
+export interface CCPMWorkstream {
+  id: string;
+  name: string;
+  description: string;
+  status: 'pending' | 'running' | 'completed' | 'blocked' | 'failed';
+  priority: 'low' | 'medium' | 'high';
+  estimatedDuration: number; // in minutes
+  actualDuration?: number;
+  startTime?: Date;
+  completionTime?: Date;
+  assignedAgents: string[];
+  dependencies: string[];
+  metadata: {
+    epicId?: string;
+    milestoneId?: string;
+    tags: string[];
+    customFields: Record<string, string | number | boolean>;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CCPMTask {
+  id: string;
+  title: string;
+  description?: string;
+  status: 'todo' | 'in-progress' | 'completed' | 'blocked';
+  priority: 'low' | 'medium' | 'high';
+  workstreamId: string;
+  estimatedDuration: number; // in minutes
+  actualDuration?: number;
+  assignee?: string;
+  tags: string[];
+  metadata: {
+    epicId?: string;
+    milestoneId?: string;
+    customFields: Record<string, string | number | boolean>;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CCPMSyncConfig {
+  repository: string;
+  accessToken: string;
+  baseUrl: string;
+  syncMode: 'manual' | 'auto' | 'disabled';
+  autoSyncInterval: number;
+  conflictResolution: 'shrimp-wins' | 'ccpm-wins' | 'manual' | 'merge';
+  enableWorkstreamSync: boolean;
+  enableTaskSync: boolean;
+  enableRealTimeSync: boolean;
+  maxRetryAttempts: number;
+  retryDelay: number; // in seconds
+}
+
+export interface CCPMSyncResult {
+  success: boolean;
+  workstreamsSynced: number;
+  tasksSynced: number;
+  conflictsResolved: number;
+  errors: string[];
+  duration: number; // in seconds
+  timestamp: Date;
+}
+
+export interface CCPMConflict {
+  id: string;
+  type: 'workstream' | 'task';
+  shrimpId: string;
+  ccpmId: string;
+  conflictType: 'status-mismatch' | 'priority-mismatch' | 'content-mismatch' | 'deletion-conflict';
+  shrimpData: Record<string, unknown>;
+  ccpmData: Record<string, unknown>;
+  resolution: 'unresolved' | 'shrimp-wins' | 'ccpm-wins' | 'merged' | 'manual';
+  resolutionNotes?: string;
+  createdAt: Date;
+  resolvedAt?: Date;
+}

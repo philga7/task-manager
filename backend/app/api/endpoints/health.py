@@ -41,3 +41,20 @@ async def detailed_health_check():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
+
+@router.get("/status")
+async def status_check():
+    """Status check endpoint for CCPM integration"""
+    return {
+        "status": "healthy",
+        "service": "claude-code-pm-backend",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "0.1.0",
+        "ccpm_integration": "enabled",
+        "endpoints": {
+            "health": "/api/v1/health",
+            "tasks": "/api/v1/tasks",
+            "workstreams": "/api/v1/workstreams",
+            "claude_pm": "/api/v1/claude-pm"
+        }
+    }

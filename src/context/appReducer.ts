@@ -23,6 +23,7 @@ interface AppState {
   userSettings: UserSettings;
   authentication: AuthenticationState;
   parallelExecution?: ParallelExecutionState;
+  ccpmSync: CCPMSyncState;
 }
 
 type AppAction =
@@ -65,7 +66,17 @@ type AppAction =
   | { type: 'REMOVE_AGENT'; payload: string }
   | { type: 'ADD_WORKSTREAM'; payload: Workstream }
   | { type: 'UPDATE_WORKSTREAM'; payload: Workstream }
-  | { type: 'REMOVE_WORKSTREAM'; payload: string };
+  | { type: 'REMOVE_WORKSTREAM'; payload: string }
+  // CCPM sync actions
+  | { type: 'SET_CCPM_SYNC_STATE'; payload: CCPMSyncState }
+  | { type: 'UPDATE_CCPM_SYNC_CONFIG'; payload: Partial<CCPMSyncConfig> }
+  | { type: 'START_CCPM_SYNC'; payload: { mode: 'manual' | 'auto' } }
+  | { type: 'CCPM_SYNC_COMPLETED'; payload: CCPMSyncResult }
+  | { type: 'CCPM_SYNC_FAILED'; payload: { error: string; timestamp: Date } }
+  | { type: 'ADD_CCPM_SYNC_EVENT'; payload: CCPMSyncEvent }
+  | { type: 'UPDATE_WORKSTREAM_MAPPING'; payload: WorkstreamMapping }
+  | { type: 'UPDATE_TASK_MAPPING'; payload: TaskMapping }
+  | { type: 'RESOLVE_CCPM_CONFLICT'; payload: { conflictId: string; resolution: string; notes?: string } };
 
 // Helper function to update project progress based on tasks
 function updateProjectProgress(projects: Project[], tasks: Task[]): Project[] {
@@ -897,6 +908,107 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         }
       };
     }
+    // CCPM sync cases
+    case 'SET_CCPM_SYNC_STATE':
+      return {
+        ...state,
+        ccpmSync: action.payload
+      };
+    case 'UPDATE_CCPM_SYNC_CONFIG':
+      return {
+        ...state,
+        ccpmSync: {
+          ...state.ccpmSync,
+          ...action.payload
+        }
+      };
+    case 'START_CCPM_SYNC':
+      return {
+        ...state,
+        ccpmSync: {
+          ...state.ccpmSync,
+          syncInProgress: true,
+          error: null
+        }
+      };
+    case 'CCPM_SYNC_COMPLETED':
+      return {
+        ...state,
+        ccpmSync: {
+          ...state.ccpmSync,
+          syncInProgress: false,
+          lastSyncAt: action.payload.timestamp,
+          error: null
+        }
+      };
+    case 'CCPM_SYNC_FAILED':
+      return {
+        ...state,
+        ccpmSync: {
+          ...state.ccpmSync,
+          syncInProgress: false,
+          error: action.payload.error
+        }
+      };
+    case 'ADD_CCPM_SYNC_EVENT':
+      return {
+        ...state,
+        ccpmSync: {
+          ...state.ccpmSync,
+          syncHistory: [action.payload, ...state.ccpmSync.syncHistory].slice(0, 100) // Keep last 100 events
+        }
+      };
+    case 'UPDATE_WORKSTREAM_MAPPING':
+      return {
+        ...state,
+        ccpmSync: {
+          ...state.ccpmSync,
+          workstreamMapping: state.ccpmSync.workstreamMapping.map(mapping =>
+            mapping.shrimpWorkstreamId === action.payload.shrimpWorkstreamId
+              ? action.payload
+              : mapping
+          )
+        }
+      };
+    case 'UPDATE_TASK_MAPPING':
+      return {
+        ...state,
+        ccpmSync: {
+          ...state.ccpmSync,
+          taskMapping: state.ccpmSync.taskMapping.map(mapping =>
+            mapping.shrimpTaskId === action.payload.shrimpTaskId
+              ? action.payload
+              : mapping
+          )
+        }
+      };
+    case 'RESOLVE_CCPM_CONFLICT':
+      return {
+        ...state,
+        ccpmSync: {
+          ...state.ccpmSync,
+          workstreamMapping: state.ccpmSync.workstreamMapping.map(mapping => {
+            if (mapping.shrimpWorkstreamId === action.payload.conflictId || mapping.ccpmWorkstreamId === action.payload.conflictId) {
+              return {
+                ...mapping,
+                syncStatus: 'synced',
+                conflictDetails: undefined
+              };
+            }
+            return mapping;
+          }),
+          taskMapping: state.ccpmSync.taskMapping.map(mapping => {
+            if (mapping.shrimpTaskId === action.payload.conflictId || mapping.ccpmTaskId === action.payload.conflictId) {
+              return {
+                ...mapping,
+                syncStatus: 'synced',
+                conflictDetails: undefined
+              };
+            }
+            return mapping;
+          })
+        }
+      };
     default:
       return state;
   }

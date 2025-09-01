@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+# [1.3.0](https://github.com/philga7/task-manager/compare/v1.2.0...v1.3.0) (2024-12-19)
+
+### Features
+
+* **CCPM Integration**: Implement comprehensive bidirectional synchronization between Shrimp Task Manager and CCPM (Claude Code PM) systems
+* **Task Migration**: Automatically migrate high-priority complex tasks with parallel execution to CCPM workstreams
+* **Real-time Sync**: Configurable automatic synchronization with conflict resolution strategies
+* **Workstream Management**: Full CRUD operations for CCPM workstreams with dependency tracking
+* **Comprehensive Testing**: Complete test suite covering unit, integration, performance, and security testing
+
+### Added
+
+* **Frontend Components**:
+  - `CCPMSyncService`: Core service for CCPM API communication and sync management
+  - `useCCPMSync`: React hook for CCPM integration with AppContext
+  - `CCPMSyncConfigComponent`: UI for CCPM configuration and status monitoring
+  - Enhanced `ParallelExecutionView` with CCPM workstream display and migration controls
+
+* **Backend API**:
+  - New `/api/v1/workstreams` endpoints for workstream CRUD operations
+  - Enhanced health endpoints with CCPM integration status
+  - Comprehensive workstream dependency management
+  - Status tracking and statistics endpoints
+
+* **State Management**:
+  - Extended `AppState` with `ccpmSync` configuration and status
+  - New reducer actions for sync operations, conflict resolution, and mapping updates
+  - Automatic state persistence with demo mode compatibility
+
+* **Testing Infrastructure**:
+  - Frontend Jest tests for CCPM integration components
+  - Backend Pytest tests for workstream API endpoints
+  - Comprehensive test runner script with performance and security validation
+  - Integration tests for complete CCPM workflow validation
+
+### Technical Improvements
+
+* **Type Safety**: New TypeScript interfaces for CCPM data models and sync operations
+* **Error Handling**: Robust error handling with retry mechanisms and user-friendly messages
+* **Performance**: Optimized sync operations with debounced updates and efficient mapping
+* **Security**: Input validation, token management, and rate limiting for API endpoints
+* **Documentation**: Comprehensive README with usage examples and troubleshooting guide
+
 # [1.2.0](https://github.com/philga7/task-manager/compare/v1.1.2...v1.2.0) (2025-09-01)
 
 

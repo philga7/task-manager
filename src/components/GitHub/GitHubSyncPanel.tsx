@@ -53,146 +53,20 @@ export function GitHubSyncPanel({ onClose }: GitHubSyncPanelProps) {
 
   // Mock data for demo mode (in real implementation, this would come from GitHub API)
   const mockIssues: GitHubIssue[] = useMemo(() => [
-    {
-      id: 1,
-      number: 1,
-      title: 'Implement GitHub integration',
-      body: 'Add GitHub issue synchronization to the task manager',
-      state: 'open',
-      locked: false,
-      assignees: [],
-      labels: [
-        { id: 1, node_id: '1', url: '', name: 'enhancement', color: '84b6eb', default: false }
-      ],
-      created_at: '2024-01-15T10:00:00Z',
-      updated_at: '2024-01-15T10:00:00Z',
-      user: {
-        login: 'philga7',
-        id: 1,
-        node_id: '1',
-        avatar_url: 'https://github.com/github.png',
-        gravatar_id: '',
-        url: '',
-        html_url: '',
-        followers_url: '',
-        following_url: '',
-        gists_url: '',
-        starred_url: '',
-        subscriptions_url: '',
-        organizations_url: '',
-        repos_url: '',
-        events_url: '',
-        received_events_url: '',
-        type: 'User',
-        site_admin: false
-      },
-      html_url: 'https://github.com/philga7/task-manager/issues/1',
-      comments_url: '',
-      events_url: '',
-      labels_url: '',
-      repository_url: '',
-      assignees_url: '',
-      comments: 2,
-      author_association: 'OWNER',
-      timeline_url: '',
-      linkedTaskId: 'task-1',
-      localStatus: 'synced',
-      lastSyncAt: new Date()
-    },
-    {
-      id: 2,
-      number: 2,
-      title: 'Fix mobile responsiveness',
-      body: 'Improve mobile layout and touch interactions',
-      state: 'open',
-      locked: false,
-      assignees: [],
-      labels: [
-        { id: 2, node_id: '2', url: '', name: 'bug', color: 'd73a4a', default: false }
-      ],
-      created_at: '2024-01-14T15:30:00Z',
-      updated_at: '2024-01-14T15:30:00Z',
-      user: {
-        login: 'philga7',
-        id: 1,
-        node_id: '1',
-        avatar_url: 'https://github.com/github.png',
-        gravatar_id: '',
-        url: '',
-        html_url: '',
-        followers_url: '',
-        following_url: '',
-        gists_url: '',
-        starred_url: '',
-        subscriptions_url: '',
-        organizations_url: '',
-        repos_url: '',
-        events_url: '',
-        received_events_url: '',
-        type: 'User',
-        site_admin: false
-      },
-      html_url: 'https://github.com/philga7/task-manager/issues/2',
-      comments_url: '',
-      events_url: '',
-      labels_url: '',
-      repository_url: '',
-      assignees_url: '',
-      comments: 0,
-      author_association: 'OWNER',
-      timeline_url: '',
-      localStatus: 'pending',
-      lastSyncAt: new Date()
-    }
+    // All mock issues have been removed - GitHub integration is currently disabled
   ], []);
 
   const mockAssignees: GitHubUser[] = useMemo(() => [
-    {
-      login: 'philga7',
-      id: 1,
-      node_id: '1',
-      avatar_url: 'https://github.com/github.png',
-      gravatar_id: '',
-      url: '',
-      html_url: '',
-      followers_url: '',
-      following_url: '',
-      gists_url: '',
-      starred_url: '',
-      subscriptions_url: '',
-      organizations_url: '',
-      repos_url: '',
-      events_url: '',
-      received_events_url: '',
-      type: 'User',
-      site_admin: false
-    }
+    // Assignees removed - no active GitHub integration
   ], []);
 
   const mockLabels: GitHubLabel[] = useMemo(() => [
-    { id: 1, node_id: '1', url: '', name: 'enhancement', color: '84b6eb', default: false },
-    { id: 2, node_id: '2', url: '', name: 'bug', color: 'd73a4a', default: false },
-    { id: 3, node_id: '3', url: '', name: 'documentation', color: '0075ca', default: false }
+    // Labels removed - no active GitHub integration
   ], []);
 
   const mockMilestones: GitHubMilestone[] = useMemo(() => [
-    {
-      url: '',
-      html_url: '',
-      labels_url: '',
-      id: 1,
-      node_id: '1',
-      number: 1,
-      title: 'v1.2.0 Release',
-      description: 'Major feature release',
-      creator: mockAssignees[0],
-      open_issues: 5,
-      closed_issues: 10,
-      state: 'open',
-      created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-15T00:00:00Z'
-    }
-  ], [mockAssignees]);
+    // Milestones removed - no active GitHub integration
+  ], []);
 
   // Load initial data
   useEffect(() => {
@@ -359,7 +233,7 @@ export function GitHubSyncPanel({ onClose }: GitHubSyncPanelProps) {
           <GitBranch className="w-6 h-6 text-stone-400" />
           <div>
             <h2 className="text-lg font-semibold text-stone-100">GitHub Issues</h2>
-            <p className="text-sm text-stone-400">Manage and sync GitHub issues</p>
+            <p className="text-sm text-stone-400">All issues have been closed out - integration disabled</p>
           </div>
         </div>
 
@@ -392,10 +266,12 @@ export function GitHubSyncPanel({ onClose }: GitHubSyncPanelProps) {
               setEditingIssue(undefined);
               setShowIssueForm(true);
             }}
-            className="flex items-center space-x-2 px-3 py-2 bg-stone-600 hover:bg-stone-500 text-stone-100 rounded-lg transition-colors"
+            disabled={true}
+            className="flex items-center space-x-2 px-3 py-2 bg-stone-700 text-stone-500 rounded-lg transition-colors cursor-not-allowed opacity-50"
+            title="Issue creation disabled - GitHub integration closed out"
           >
             <Plus className="w-4 h-4" />
-            <span>New Issue</span>
+            <span>New Issue (Disabled)</span>
           </button>
 
           {/* Settings Button */}
@@ -448,6 +324,11 @@ export function GitHubSyncPanel({ onClose }: GitHubSyncPanelProps) {
               {syncState.issues.filter(i => i.linkedTaskId).length} linked to tasks
             </span>
           </div>
+        </div>
+        <div className="mt-2 pt-2 border-t border-stone-700">
+          <span className="text-stone-400 text-xs">
+            ✅ All GitHub Issues have been closed out and removed from the system
+          </span>
         </div>
       </div>
 
