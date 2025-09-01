@@ -559,7 +559,7 @@ export interface CCPMWorkstream {
     epicId?: string;
     milestoneId?: string;
     tags: string[];
-    customFields: Record<string, any>;
+    customFields: Record<string, string | number | boolean>;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -579,7 +579,7 @@ export interface CCPMTask {
   metadata: {
     epicId?: string;
     milestoneId?: string;
-    customFields: Record<string, any>;
+    customFields: Record<string, string | number | boolean>;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -615,8 +615,8 @@ export interface CCPMConflict {
   shrimpId: string;
   ccpmId: string;
   conflictType: 'status-mismatch' | 'priority-mismatch' | 'content-mismatch' | 'deletion-conflict';
-  shrimpData: any;
-  ccpmData: any;
+  shrimpData: Record<string, unknown>;
+  ccpmData: Record<string, unknown>;
   resolution: 'unresolved' | 'shrimp-wins' | 'ccpm-wins' | 'merged' | 'manual';
   resolutionNotes?: string;
   createdAt: Date;

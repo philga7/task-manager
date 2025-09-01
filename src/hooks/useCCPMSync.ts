@@ -3,8 +3,6 @@ import { useApp } from '../context/useApp';
 import { CCPMSyncService, createDefaultCCPMSyncConfig } from '../services/ccpmSyncService';
 import { 
   CCPMSyncConfig, 
-  CCPMSyncResult, 
-  CCPMSyncEvent,
   WorkstreamMapping,
   TaskMapping
 } from '../types';

@@ -13,7 +13,6 @@ export function CCPMSyncConfigComponent({ className = '' }: CCPMSyncConfigProps)
     ccpmSync,
     initializeSync,
     startSync,
-    updateSyncConfig,
     testConnection,
     disableSync,
     isEnabled,
@@ -42,7 +41,7 @@ export function CCPMSyncConfigComponent({ className = '' }: CCPMSyncConfigProps)
     }
   }, [ccpmSync, defaultConfig]);
 
-  const handleConfigChange = (field: keyof CCPMSyncConfig, value: any) => {
+  const handleConfigChange = (field: keyof CCPMSyncConfig, value: string | number | boolean) => {
     setConfig(prev => ({
       ...prev,
       [field]: value

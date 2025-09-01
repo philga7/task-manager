@@ -7,8 +7,6 @@ import {
   CCPMTask, 
   WorkstreamMapping, 
   TaskMapping, 
-  CCPMConflict,
-  Workstream,
   Task
 } from '../types';
 
@@ -183,7 +181,7 @@ export class CCPMSyncService {
       
       // Get workstreams from Shrimp (this would come from the app state)
       // For now, we'll simulate this
-      const shrimpWorkstreams: Workstream[] = [];
+      // const shrimpWorkstreams: Workstream[] = [];
 
       // Create mappings for new workstreams
       for (const ccpmWs of ccpmWorkstreams) {
@@ -234,7 +232,7 @@ export class CCPMSyncService {
       
       // Get tasks from Shrimp (this would come from the app state)
       // For now, we'll simulate this
-      const shrimpTasks: Task[] = [];
+      // const shrimpTasks: Task[] = [];
 
       // Create mappings for new tasks
       for (const ccpmTask of ccpmTasks) {

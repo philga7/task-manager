@@ -116,7 +116,7 @@ export function ParallelExecutionView({ className = '' }: ParallelExecutionViewP
     if (ccpmSync.isEnabled && ccpmSync.isConnected) {
       loadCCPMWorkstreams();
     }
-  }, [ccpmSync.isEnabled, ccpmSync.isConnected]);
+  }, [ccpmSync.isEnabled, ccpmSync.isConnected, loadCCPMWorkstreams]);
 
   // Simulate real-time updates
   useEffect(() => {
@@ -139,14 +139,14 @@ export function ParallelExecutionView({ className = '' }: ParallelExecutionViewP
   }, []);
 
   // Load CCPM workstreams
-  const loadCCPMWorkstreams = async () => {
+  const loadCCPMWorkstreams = useCallback(async () => {
     try {
       const workstreams = await getCCPMWorkstreams();
       setCcpmWorkstreams(workstreams);
     } catch (error) {
       console.error('Failed to load CCPM workstreams:', error);
     }
-  };
+  }, [getCCPMWorkstreams]);
 
   // Handle task migration
   const handleMigrateTasks = async () => {
