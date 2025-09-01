@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+# [1.2.0](https://github.com/philga7/task-manager/compare/v1.1.2...v1.2.0) (2025-09-01)
+
+
+### Features
+
+* Complete CCPM (Claude Code PM) integration ([#34](https://github.com/philga7/task-manager/issues/34)) ([18e4170](https://github.com/philga7/task-manager/commit/18e417086c5ff39132e9064ce5b5c2eacc0cf69c))
+
 ## [1.1.2](https://github.com/philga7/task-manager/compare/v1.1.1...v1.1.2) (2025-08-22)
 
 
