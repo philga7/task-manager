@@ -1,4 +1,4 @@
-import { Task, Project, Goal, Milestone, Analytics, User } from '../types';
+import { Task, Project, Goal, Milestone, Analytics, User, Agent, ParallelExecutionState } from '../types';
 
 // Demo user data
 export const demoUser: User = {
@@ -291,6 +291,102 @@ export const demoAnalytics: Analytics = {
   averageCompletionTime: 4.2
 };
 
+// Demo agents data
+export const demoAgents: Agent[] = [
+  {
+    id: 'agent-1',
+    name: 'CodeBot',
+    type: 'task-executor',
+    status: 'idle',
+    performance: {
+      tasksCompleted: 15,
+      averageExecutionTime: 45,
+      successRate: 98
+    },
+    lastActivity: new Date(),
+    resourceUsage: { cpu: 0, memory: 0, network: 0 },
+    errors: [],
+    configuration: {
+      maxConcurrentTasks: 3,
+      timeoutMinutes: 30,
+      retryAttempts: 3,
+      priority: 'normal',
+      autoRestart: true,
+      logLevel: 'info'
+    },
+    communicationStatus: 'connected',
+    contextSharing: {
+      isSharing: false,
+      sharedContexts: [],
+      lastShared: null
+    }
+  },
+  {
+    id: 'agent-2',
+    name: 'ReviewBot',
+    type: 'code-reviewer',
+    status: 'idle',
+    performance: {
+      tasksCompleted: 8,
+      averageExecutionTime: 30,
+      successRate: 95
+    },
+    lastActivity: new Date(Date.now() - 300000),
+    resourceUsage: { cpu: 0, memory: 0, network: 0 },
+    errors: [],
+    configuration: {
+      maxConcurrentTasks: 2,
+      timeoutMinutes: 20,
+      retryAttempts: 2,
+      priority: 'normal',
+      autoRestart: true,
+      logLevel: 'info'
+    },
+    communicationStatus: 'connected',
+    contextSharing: {
+      isSharing: false,
+      sharedContexts: [],
+      lastShared: null
+    }
+  },
+  {
+    id: 'agent-3',
+    name: 'TestBot',
+    type: 'qa-tester',
+    status: 'idle',
+    performance: {
+      tasksCompleted: 12,
+      averageExecutionTime: 60,
+      successRate: 92
+    },
+    lastActivity: new Date(),
+    resourceUsage: { cpu: 0, memory: 0, network: 0 },
+    errors: [],
+    configuration: {
+      maxConcurrentTasks: 2,
+      timeoutMinutes: 45,
+      retryAttempts: 3,
+      priority: 'normal',
+      autoRestart: true,
+      logLevel: 'info'
+    },
+    communicationStatus: 'connected',
+    contextSharing: {
+      isSharing: false,
+      sharedContexts: [],
+      lastShared: null
+    }
+  }
+];
+
+// Demo parallel execution state
+export const demoParallelExecution: ParallelExecutionState = {
+  workstreams: [],
+  agents: demoAgents,
+  dependencies: [],
+  lastUpdate: new Date()
+};
+
 // Function to generate complete demo state
 export function generateDemoState() {
   return {
@@ -320,7 +416,8 @@ export function generateDemoState() {
       user: demoUser,
       isAuthenticated: true,
       isDemoMode: true
-    }
+    },
+    parallelExecution: demoParallelExecution
   };
 }
 

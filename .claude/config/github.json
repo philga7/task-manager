@@ -1,0 +1,37 @@
+{
+  "repository": "philga7/task-manager",
+  "defaultBranch": "main",
+  "issueLabels": {
+    "feature": "enhancement",
+    "bug": "bug",
+    "documentation": "documentation",
+    "test": "test",
+    "claude-code-pm": "claude-code-pm"
+  },
+  "subIssueEnabled": true,
+  "autoLabeling": true,
+  "workflowSettings": {
+    "autoCreateIssues": true,
+    "syncWithTasks": true,
+    "parallelExecution": true
+  },
+  "apiSettings": {
+    "baseUrl": "https://api.github.com",
+    "timeout": 30000,
+    "retryAttempts": 3
+  },
+  "issueTemplates": {
+    "feature": {
+      "title": "Feature: {title}",
+      "body": "## Description\n{description}\n\n## Acceptance Criteria\n- [ ] Criterion 1\n- [ ] Criterion 2\n\n## Technical Considerations\n{technical_notes}\n\n## Related Tasks\n{related_tasks}"
+    },
+    "bug": {
+      "title": "Bug: {title}",
+      "body": "## Description\n{description}\n\n## Steps to Reproduce\n1. Step 1\n2. Step 2\n\n## Expected Behavior\n{expected}\n\n## Actual Behavior\n{actual}\n\n## Environment\n- OS: {os}\n- Browser: {browser}\n- Version: {version}"
+    },
+    "task": {
+      "title": "Task: {title}",
+      "body": "## Task Description\n{description}\n\n## Priority\n{priority}\n\n## Estimated Time\n{estimated_time}\n\n## Dependencies\n{dependencies}\n\n## Notes\n{notes}"
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "name": "ccpm-cli",
+  "version": "1.0.0",
+  "description": "Claude Code PM - Project Management CLI with GitHub integration and parallel agent execution",
+  "main": "index.js",
+  "bin": {
+    "ccpm": "./bin/ccpm.js"
+  },
+  "scripts": {
+    "install": "node scripts/install.js",
+    "postinstall": "node scripts/postinstall.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "claude",
+    "project-management",
+    "github",
+    "cli",
+    "parallel-execution",
+    "agents",
+    "workflow",
+    "productivity"
+  ],
+  "author": "Claude AI Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/claude-ai/ccpm.git"
+  },
+  "bugs": {
+    "url": "https://github.com/claude-ai/ccpm/issues"
+  },
+  "homepage": "https://github.com/claude-ai/ccpm#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "commander": "^9.4.0",
+    "chalk": "^4.1.2",
+    "inquirer": "^8.2.4",
+    "fs-extra": "^10.1.0",
+    "axios": "^0.27.2"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "typescript": "^4.7.4"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "install/",
+    "README.md",
+    "LICENSE"
+  ],
+  "preferGlobal": true,
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}
