@@ -12,6 +12,7 @@ import { Tasks } from './pages/Tasks';
 import { Projects } from './pages/Projects';
 import { Goals } from './pages/Goals';
 import { Analytics } from './pages/Analytics';
+import { GitHubPage } from './pages/GitHub';
 import { Settings } from './pages/Settings';
 
 function App() {
@@ -50,6 +51,11 @@ function App() {
                   <Route path="/analytics" element={
                     <ProtectedRoute>
                       <Analytics />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/github" element={
+                    <ProtectedRoute>
+                      <GitHubPage />
                     </ProtectedRoute>
                   } />
                   <Route path="/settings" element={<Settings />} />

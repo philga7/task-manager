@@ -1,4 +1,4 @@
-import { Task, Project, Goal, Milestone, UserSettings, User, AuthenticationState } from '../types';
+import { Task, Project, Goal, Milestone, UserSettings, User, AuthenticationState, Workstream, WorkstreamDependency } from '../types';
 import { calculateProjectProgress, calculateGoalProgress } from '../utils/progress';
 import { validateTaskData, validateGoalData, validateMilestoneTaskAssociation, validateMilestoneTaskConsistency } from '../utils/validation';
 import { createSession, clearCurrentSession, saveAuthState, clearAuthState } from '../utils/auth';
@@ -22,6 +22,7 @@ interface AppState {
   selectedPriority: string | null;
   userSettings: UserSettings;
   authentication: AuthenticationState;
+  parallelExecution?: ParallelExecutionState;
 }
 
 type AppAction =
@@ -49,7 +50,22 @@ type AppAction =
   | { type: 'SWITCH_TO_AUTH' }
   | { type: 'RESTORE_AUTH'; payload: { user: User | null; isAuthenticated: boolean; isDemoMode: boolean } }
   | { type: 'LOAD_USER_DATA'; payload: AppState }
-  | { type: 'SYNC_PROFILE_DATA' };
+  | { type: 'SYNC_PROFILE_DATA' }
+  // Parallel execution actions
+  | { type: 'UPDATE_TASK_PARALLEL_EXECUTION'; payload: { taskId: string; parallelExecution: Task['parallelExecution'] } }
+  | { type: 'ADD_WORKSTREAM_TO_TASK'; payload: { taskId: string; workstream: Workstream } }
+  | { type: 'UPDATE_WORKSTREAM_IN_TASK'; payload: { taskId: string; workstreamId: string; updates: Partial<Workstream> } }
+  | { type: 'REMOVE_WORKSTREAM_FROM_TASK'; payload: { taskId: string; workstreamId: string } }
+  | { type: 'ADD_DEPENDENCY_TO_TASK'; payload: { taskId: string; dependency: WorkstreamDependency } }
+  | { type: 'REMOVE_DEPENDENCY_FROM_TASK'; payload: { taskId: string; fromId: string; toId: string } }
+  // Parallel execution state management
+  | { type: 'SET_PARALLEL_EXECUTION_STATE'; payload: ParallelExecutionState }
+  | { type: 'ADD_AGENT'; payload: Agent }
+  | { type: 'UPDATE_AGENT'; payload: Agent }
+  | { type: 'REMOVE_AGENT'; payload: string }
+  | { type: 'ADD_WORKSTREAM'; payload: Workstream }
+  | { type: 'UPDATE_WORKSTREAM'; payload: Workstream }
+  | { type: 'REMOVE_WORKSTREAM'; payload: string };
 
 // Helper function to update project progress based on tasks
 function updateProjectProgress(projects: Project[], tasks: Task[]): Project[] {
@@ -651,6 +667,236 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       }
       logProfile.noSync();
       return state;
+    // Parallel execution cases
+    case 'UPDATE_TASK_PARALLEL_EXECUTION': {
+      const updatedTasks = state.tasks.map(task => 
+        task.id === action.payload.taskId 
+          ? { ...task, parallelExecution: action.payload.parallelExecution }
+          : task
+      );
+      const updatedProjects = updateProjectProgress(state.projects, updatedTasks);
+      const updatedGoals = updateMilestoneCompletion(updateGoalProgress(state.goals, updatedProjects), updatedTasks);
+      
+      return {
+        ...state,
+        tasks: updatedTasks,
+        projects: updatedProjects,
+        goals: updatedGoals
+      };
+    }
+    case 'ADD_WORKSTREAM_TO_TASK': {
+      const updatedTasks = state.tasks.map(task => {
+        if (task.id === action.payload.taskId) {
+          const currentParallelExecution = task.parallelExecution || { enabled: false, workstreams: [], dependencies: [] };
+          return {
+            ...task,
+            parallelExecution: {
+              ...currentParallelExecution,
+              workstreams: [...currentParallelExecution.workstreams, action.payload.workstream]
+            }
+          };
+        }
+        return task;
+      });
+      const updatedProjects = updateProjectProgress(state.projects, updatedTasks);
+      const updatedGoals = updateMilestoneCompletion(updateGoalProgress(state.goals, updatedProjects), updatedTasks);
+      
+      return {
+        ...state,
+        tasks: updatedTasks,
+        projects: updatedProjects,
+        goals: updatedGoals
+      };
+    }
+    case 'UPDATE_WORKSTREAM_IN_TASK': {
+      const updatedTasks = state.tasks.map(task => {
+        if (task.id === action.payload.taskId && task.parallelExecution) {
+          const updatedWorkstreams = task.parallelExecution.workstreams.map(workstream =>
+            workstream.id === action.payload.workstreamId
+              ? { ...workstream, ...action.payload.updates }
+              : workstream
+          );
+          return {
+            ...task,
+            parallelExecution: {
+              ...task.parallelExecution,
+              workstreams: updatedWorkstreams
+            }
+          };
+        }
+        return task;
+      });
+      const updatedProjects = updateProjectProgress(state.projects, updatedTasks);
+      const updatedGoals = updateMilestoneCompletion(updateGoalProgress(state.goals, updatedProjects), updatedTasks);
+      
+      return {
+        ...state,
+        tasks: updatedTasks,
+        projects: updatedProjects,
+        goals: updatedGoals
+      };
+    }
+    case 'REMOVE_WORKSTREAM_FROM_TASK': {
+      const updatedTasks = state.tasks.map(task => {
+        if (task.id === action.payload.taskId && task.parallelExecution) {
+          const updatedWorkstreams = task.parallelExecution.workstreams.filter(
+            workstream => workstream.id !== action.payload.workstreamId
+          );
+          // Also remove dependencies involving this workstream
+          const updatedDependencies = task.parallelExecution.dependencies.filter(
+            dep => dep.from !== action.payload.workstreamId && dep.to !== action.payload.workstreamId
+          );
+          return {
+            ...task,
+            parallelExecution: {
+              ...task.parallelExecution,
+              workstreams: updatedWorkstreams,
+              dependencies: updatedDependencies
+            }
+          };
+        }
+        return task;
+      });
+      const updatedProjects = updateProjectProgress(state.projects, updatedTasks);
+      const updatedGoals = updateMilestoneCompletion(updateGoalProgress(state.goals, updatedProjects), updatedTasks);
+      
+      return {
+        ...state,
+        tasks: updatedTasks,
+        projects: updatedProjects,
+        goals: updatedGoals
+      };
+    }
+    case 'ADD_DEPENDENCY_TO_TASK': {
+      const updatedTasks = state.tasks.map(task => {
+        if (task.id === action.payload.taskId && task.parallelExecution) {
+          return {
+            ...task,
+            parallelExecution: {
+              ...task.parallelExecution,
+              dependencies: [...task.parallelExecution.dependencies, action.payload.dependency]
+            }
+          };
+        }
+        return task;
+      });
+      const updatedProjects = updateProjectProgress(state.projects, updatedTasks);
+      const updatedGoals = updateMilestoneCompletion(updateGoalProgress(state.goals, updatedProjects), updatedTasks);
+      
+      return {
+        ...state,
+        tasks: updatedTasks,
+        projects: updatedProjects,
+        goals: updatedGoals
+      };
+    }
+    case 'REMOVE_DEPENDENCY_FROM_TASK': {
+      const updatedTasks = state.tasks.map(task => {
+        if (task.id === action.payload.taskId && task.parallelExecution) {
+          const updatedDependencies = task.parallelExecution.dependencies.filter(
+            dep => !(dep.from === action.payload.fromId && dep.to === action.payload.toId)
+          );
+          return {
+            ...task,
+            parallelExecution: {
+              ...task.parallelExecution,
+              dependencies: updatedDependencies
+            }
+          };
+        }
+        return task;
+      });
+      const updatedProjects = updateProjectProgress(state.projects, updatedTasks);
+      const updatedGoals = updateMilestoneCompletion(updateGoalProgress(state.goals, updatedProjects), updatedTasks);
+      
+      return {
+        ...state,
+        tasks: updatedTasks,
+        projects: updatedProjects,
+        goals: updatedGoals
+      };
+    }
+    // Parallel execution state management cases
+    case 'SET_PARALLEL_EXECUTION_STATE': {
+      return {
+        ...state,
+        parallelExecution: action.payload
+      };
+    }
+    case 'ADD_AGENT': {
+      const currentParallelExecution = state.parallelExecution || { workstreams: [], agents: [], dependencies: [], lastUpdate: new Date() };
+      return {
+        ...state,
+        parallelExecution: {
+          ...currentParallelExecution,
+          agents: [...currentParallelExecution.agents, action.payload],
+          lastUpdate: new Date()
+        }
+      };
+    }
+    case 'UPDATE_AGENT': {
+      const currentParallelExecution = state.parallelExecution || { workstreams: [], agents: [], dependencies: [], lastUpdate: new Date() };
+      const updatedAgents = currentParallelExecution.agents.map(agent =>
+        agent.id === action.payload.id ? action.payload : agent
+      );
+      return {
+        ...state,
+        parallelExecution: {
+          ...currentParallelExecution,
+          agents: updatedAgents,
+          lastUpdate: new Date()
+        }
+      };
+    }
+    case 'REMOVE_AGENT': {
+      const currentParallelExecution = state.parallelExecution || { workstreams: [], agents: [], dependencies: [], lastUpdate: new Date() };
+      const updatedAgents = currentParallelExecution.agents.filter(agent => agent.id !== action.payload);
+      return {
+        ...state,
+        parallelExecution: {
+          ...currentParallelExecution,
+          agents: updatedAgents,
+          lastUpdate: new Date()
+        }
+      };
+    }
+    case 'ADD_WORKSTREAM': {
+      const currentParallelExecution = state.parallelExecution || { workstreams: [], agents: [], dependencies: [], lastUpdate: new Date() };
+      return {
+        ...state,
+        parallelExecution: {
+          ...currentParallelExecution,
+          workstreams: [...currentParallelExecution.workstreams, action.payload],
+          lastUpdate: new Date()
+        }
+      };
+    }
+    case 'UPDATE_WORKSTREAM': {
+      const currentParallelExecution = state.parallelExecution || { workstreams: [], agents: [], dependencies: [], lastUpdate: new Date() };
+      const updatedWorkstreams = currentParallelExecution.workstreams.map(workstream =>
+        workstream.id === action.payload.id ? action.payload : workstream
+      );
+      return {
+        ...state,
+        parallelExecution: {
+          ...currentParallelExecution,
+          workstreams: updatedWorkstreams,
+          lastUpdate: new Date()
+        }
+      };
+    }
+    case 'REMOVE_WORKSTREAM': {
+      const currentParallelExecution = state.parallelExecution || { workstreams: [], agents: [], dependencies: [], lastUpdate: new Date() };
+      const updatedWorkstreams = currentParallelExecution.workstreams.filter(workstream => workstream.id !== action.payload);
+      return {
+        ...state,
+        parallelExecution: {
+          ...currentParallelExecution,
+          workstreams: updatedWorkstreams,
+          lastUpdate: new Date()
+        }
+      };
+    }
     default:
       return state;
   }

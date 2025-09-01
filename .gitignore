@@ -25,3 +25,12 @@ dist-ssr
 .env
 .vercel
 .cursor/
+
+# Claude Code PM
+.claude/context/*.log
+.claude/epics/*.tmp
+.claude/agents/*.cache
+.claude/workflows/*.backup
+
+# CCPM files
+.claude/

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Task } from '../../types';
+import { Task, Agent, Workstream, WorkstreamDependency } from '../../types';
 import { Button } from '../UI/Button';
 import { Card } from '../UI/Card';
 import { X, Calendar, Flag, Tag, Folder } from 'lucide-react';
 import { useApp } from '../../context/useApp';
+import { ParallelExecutionConfig } from './ParallelExecutionConfig';
 
 interface TaskFormProps {
   onClose: () => void;
@@ -32,6 +33,11 @@ const formatDueDate = (dueDate: Date | string | undefined): string => {
 
 export function TaskForm({ onClose, task }: TaskFormProps) {
   const { state, dispatch } = useApp();
+  
+  // Get available agents from the system state
+  // In a real implementation, this would come from the backend or system state
+  const availableAgents: Agent[] = state.parallelExecution?.agents || [];
+
   const [formData, setFormData] = useState({
     title: task?.title || '',
     description: task?.description || '',
@@ -41,9 +47,25 @@ export function TaskForm({ onClose, task }: TaskFormProps) {
     tags: task?.tags.join(', ') || ''
   });
 
+  // Parallel execution state
+  const [parallelExecutionEnabled, setParallelExecutionEnabled] = useState(
+    task?.parallelExecution?.enabled || false
+  );
+  const [workstreams, setWorkstreams] = useState<Workstream[]>(
+    task?.parallelExecution?.workstreams || []
+  );
+  const [dependencies, setDependencies] = useState<WorkstreamDependency[]>(
+    task?.parallelExecution?.dependencies || []
+  );
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Calculate estimated total duration for parallel execution
+    const estimatedTotalDuration = parallelExecutionEnabled && workstreams.length > 0
+      ? Math.max(...workstreams.map(ws => ws.estimatedDuration))
+      : undefined;
+
     const taskData: Task = {
       id: task?.id || `task-${Date.now()}`,
       title: formData.title,
@@ -54,7 +76,13 @@ export function TaskForm({ onClose, task }: TaskFormProps) {
       projectId: formData.projectId || undefined,
       createdAt: task?.createdAt || new Date(),
       completedAt: task?.completedAt,
-      tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+      tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+      parallelExecution: parallelExecutionEnabled ? {
+        enabled: true,
+        workstreams,
+        dependencies,
+        estimatedTotalDuration
+      } : undefined
     };
 
     if (task) {
@@ -174,6 +202,19 @@ export function TaskForm({ onClose, task }: TaskFormProps) {
               className="w-full px-3 py-2 border border-stone-700 bg-stone-800 text-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base placeholder-stone-500"
               style={{ '--tw-ring-color': '#D97757' } as React.CSSProperties}
               placeholder="Enter tags separated by commas..."
+            />
+          </div>
+
+          {/* Parallel Execution Configuration */}
+          <div className="border-t border-stone-700 pt-4">
+            <ParallelExecutionConfig
+              isEnabled={parallelExecutionEnabled}
+              onToggle={setParallelExecutionEnabled}
+              workstreams={workstreams}
+              onWorkstreamsChange={setWorkstreams}
+              dependencies={dependencies}
+              onDependenciesChange={setDependencies}
+              availableAgents={availableAgents}
             />
           </div>
 

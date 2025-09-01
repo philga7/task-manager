@@ -40,6 +40,12 @@ const initialState: AppState = {
     user: null,
     isAuthenticated: false,
     isDemoMode: false
+  },
+  parallelExecution: {
+    workstreams: [],
+    agents: [],
+    dependencies: [],
+    lastUpdate: new Date()
   }
 };
 

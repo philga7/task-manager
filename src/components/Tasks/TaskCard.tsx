@@ -5,6 +5,7 @@ import { TaskForm } from './TaskForm';
 import { Calendar, Flag, CheckCircle2, Circle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useApp } from '../../context/useApp';
+import { getPriorityColorScheme } from '../../utils/priorityColors';
 
 interface TaskCardProps {
   task: Task;
@@ -23,18 +24,13 @@ export function TaskCard({ task }: TaskCardProps) {
     dispatch({ type: 'UPDATE_TASK', payload: updatedTask });
   };
 
-  const priorityColors = {
-    low: 'text-stone-500',
-    medium: 'text-amber-500',
-    high: 'text-red-500'
-  };
-
   const isCompleted = task.status === 'completed';
+  const priorityColors = getPriorityColorScheme(task.priority);
 
   return (
     <>
       <div 
-        className={`bg-stone-900 rounded-2xl border border-stone-800 p-3 md:p-4 hover:shadow-md hover:border-stone-700 transition-all duration-250 cursor-pointer ${isCompleted ? 'opacity-75' : ''}`}
+        className={`${priorityColors.background} rounded-2xl border ${priorityColors.border} p-3 md:p-4 hover:shadow-md hover:border-stone-700 transition-all duration-250 cursor-pointer ${isCompleted ? 'opacity-75' : ''}`}
         onClick={() => setShowEditForm(true)}
       >
         <div className="flex items-start space-x-2 md:space-x-3">
@@ -56,7 +52,7 @@ export function TaskCard({ task }: TaskCardProps) {
           </button>
           
           <div className="flex-1 min-w-0">
-            <h3 className={`text-sm md:text-base font-medium text-stone-100 ${isCompleted ? 'line-through' : ''}`}>
+            <h3 className={`text-sm md:text-base font-medium ${priorityColors.text} ${isCompleted ? 'line-through' : ''}`}>
               {task.title}
             </h3>
             {task.description && (
@@ -65,7 +61,7 @@ export function TaskCard({ task }: TaskCardProps) {
             
             <div className="flex items-center space-x-2 md:space-x-4 mt-2 md:mt-3">
               <div className="flex items-center space-x-1">
-                <Flag className={`w-3 h-3 md:w-4 md:h-4 ${priorityColors[task.priority]}`} />
+                <Flag className={`w-3 h-3 md:w-4 md:h-4 ${priorityColors.icon}`} />
                 <span className="text-xs text-stone-500 capitalize">{task.priority}</span>
               </div>
               
