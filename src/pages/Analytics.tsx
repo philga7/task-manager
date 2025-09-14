@@ -3,8 +3,6 @@ import { Card } from '../components/UI/Card';
 import { ProgressBar } from '../components/UI/ProgressBar';
 import { EmptyState } from '../components/UI/EmptyState';
 import { DemoModeIndicator } from '../components/UI/DemoModeIndicator';
-import { ParallelExecutionView } from '../components/ParallelExecution';
-import { AgentStatusDashboard } from '../components/Dashboard';
 import { useApp } from '../context/useApp';
 import { TrendingUp, Clock, Target, Zap, Lock, LogIn } from 'lucide-react';
 import { calculateRealTimeAnalytics, generateWeeklyProductivityData } from '../utils/progress';
@@ -210,23 +208,7 @@ export function Analytics() {
         </Card>
       )}
 
-      {/* Agent Status Dashboard */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base md:text-lg font-medium text-stone-100">Agent Status Dashboard</h3>
-          <DemoModeIndicator variant="badge" />
-        </div>
-        <AgentStatusDashboard />
-      </Card>
 
-      {/* Parallel Execution Dashboard */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base md:text-lg font-medium text-stone-100">Parallel Execution Dashboard</h3>
-          <DemoModeIndicator variant="badge" />
-        </div>
-        <ParallelExecutionView />
-      </Card>
         </>
       )}
     </div>

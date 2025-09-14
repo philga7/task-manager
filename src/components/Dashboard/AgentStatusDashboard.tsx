@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Agent, AgentActivity, AgentConfiguration } from '../../types';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
-import { AgentStatusBadge } from '../ParallelExecution/AgentStatusBadge';
 import { AgentMetrics } from './AgentMetrics';
 import { AgentControls } from './AgentControls';
 
@@ -371,7 +370,14 @@ export function AgentStatusDashboard({ className = '' }: AgentStatusDashboardPro
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <AgentStatusBadge agent={agent} size="sm" />
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                  agent.status === 'running' ? 'bg-green-100 text-green-800' :
+                  agent.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                  agent.status === 'error' ? 'bg-red-100 text-red-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {agent.status}
+                </span>
                 <Button
                   variant="ghost"
                   size="sm"
