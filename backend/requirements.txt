@@ -1,4 +1,4 @@
-# Python dependencies for Claude Code PM backend
+# Python dependencies for backend services
 # Core web framework for building APIs
 fastapi==0.104.1
 
@@ -32,9 +32,6 @@ structlog==23.2.0
 # System monitoring
 psutil==5.9.6
 
-# GitHub integration for CCPM
-PyGithub==2.1.1
-click==8.1.7
 
 # Development and testing tools
 pytest==7.4.3

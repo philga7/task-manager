@@ -12,8 +12,7 @@ import {
   Settings,
   Plus,
   Lock,
-  Play,
-  GitBranch
+  Play
 } from 'lucide-react';
 
 const navigation = [
@@ -22,7 +21,6 @@ const navigation = [
   { name: 'Projects', href: '/projects', icon: Folder, requiresAuth: true },
   { name: 'Goals', href: '/goals', icon: Target, requiresAuth: true },
   { name: 'Analytics', href: '/analytics', icon: BarChart3, requiresAuth: true },
-  { name: 'GitHub', href: '/github', icon: GitBranch, requiresAuth: true },
   { name: 'Settings', href: '/settings', icon: Settings, requiresAuth: true },
 ];
 

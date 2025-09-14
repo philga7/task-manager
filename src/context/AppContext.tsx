@@ -40,27 +40,6 @@ const initialState: AppState = {
     user: null,
     isAuthenticated: false,
     isDemoMode: false
-  },
-  parallelExecution: {
-    workstreams: [],
-    agents: [],
-    dependencies: [],
-    lastUpdate: new Date()
-  },
-  ccpmSync: {
-    isEnabled: false,
-    isConnected: false,
-    lastSyncAt: null,
-    syncInProgress: false,
-    error: null,
-    repository: null,
-    accessToken: null,
-    syncMode: 'disabled',
-    autoSyncInterval: 30,
-    conflictResolution: 'manual',
-    syncHistory: [],
-    workstreamMapping: [],
-    taskMapping: []
   }
 };
 
