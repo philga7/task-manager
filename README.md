@@ -150,12 +150,13 @@ This project uses GitHub Actions with optimized workflows:
 
 #### Deploy Workflow (`.github/workflows/deploy.yml`)
 - **Test Job**: Runs linting and code quality checks
-- **Build Job**: Builds the project and deploys to Vercel (depends on test success)
+- **Deploy Job**: Downloads build artifacts and deploys to Vercel (depends on test success)
 - **Triggers**: Pull requests to main and published releases
 
 #### Release Workflow (`.github/workflows/release.yml`)
 - **Test Job**: Runs linting and code quality checks
-- **Release Job**: Runs semantic-release for automated versioning and publishing (depends on test success)
+- **Build Job**: Builds the project and uploads artifacts (depends on test success)
+- **Release Job**: Runs semantic-release for automated versioning and publishing (depends on build success)
 - **Triggers**: Push to main and develop branches (excluding changelog and package-lock changes)
 - **Branch Strategy**: Main branch for production releases, develop branch for alpha releases
 

@@ -159,15 +159,16 @@ The project includes optimized GitHub Actions workflows:
 
 #### Deploy Workflow (`.github/workflows/deploy.yml`)
 - **Test Job**: Runs ESLint for code quality checks
-- **Build Job**: Builds the project and deploys to Vercel
-- **Dependencies**: Build job depends on successful test completion
+- **Deploy Job**: Downloads build artifacts and deploys to Vercel
+- **Dependencies**: Deploy job depends on successful test completion
 - **Triggers**: Pull requests to main and published releases
 
 #### Release Workflow (`.github/workflows/release.yml`)
 - **Test Job**: Runs ESLint for code quality checks
-- **Build Job**: Builds the project and runs semantic-release
-- **Dependencies**: Build job depends on successful test completion
-- **Triggers**: Push to main (excluding changelog and package-lock changes)
+- **Build Job**: Builds the project and uploads artifacts
+- **Release Job**: Runs semantic-release for automated versioning
+- **Dependencies**: Build job depends on test success, Release job depends on build success
+- **Triggers**: Push to main and develop branches (excluding changelog and package-lock changes)
 
 ### Workflow Benefits
 - **Faster Feedback**: Test failures stop the pipeline immediately
