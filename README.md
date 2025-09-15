@@ -145,6 +145,25 @@ src/
 - Build command: `npm run build`
 - Output directory: `dist`
 
+### CI/CD Pipeline
+This project uses GitHub Actions with optimized workflows:
+
+#### Deploy Workflow (`.github/workflows/deploy.yml`)
+- **Test Job**: Runs linting and code quality checks
+- **Build Job**: Builds the project and deploys to Vercel (depends on test success)
+- **Triggers**: Push to main, pull requests, and releases
+
+#### Release Workflow (`.github/workflows/release.yml`)
+- **Test Job**: Runs linting and code quality checks
+- **Build Job**: Builds the project and runs semantic-release (depends on test success)
+- **Triggers**: Push to main (excluding changelog and package-lock changes)
+
+**Benefits:**
+- Faster feedback on code quality issues
+- Parallel job execution for improved performance
+- Build jobs only run after successful tests
+- Clear separation of concerns between testing and deployment
+
 ### Automated Releases
 This project uses semantic-release for automated versioning and releases. The system automatically:
 - Analyzes commit messages to determine version bumps

@@ -152,6 +152,43 @@ gh repo view --json permissions
 - Regularly rotate tokens
 - Monitor token usage
 
+## CI/CD Workflows
+
+### GitHub Actions Setup
+The project includes optimized GitHub Actions workflows:
+
+#### Deploy Workflow (`.github/workflows/deploy.yml`)
+- **Test Job**: Runs ESLint for code quality checks
+- **Build Job**: Builds the project and deploys to Vercel
+- **Dependencies**: Build job depends on successful test completion
+- **Triggers**: Push to main, pull requests, and releases
+
+#### Release Workflow (`.github/workflows/release.yml`)
+- **Test Job**: Runs ESLint for code quality checks
+- **Build Job**: Builds the project and runs semantic-release
+- **Dependencies**: Build job depends on successful test completion
+- **Triggers**: Push to main (excluding changelog and package-lock changes)
+
+### Workflow Benefits
+- **Faster Feedback**: Test failures stop the pipeline immediately
+- **Parallel Execution**: Jobs run independently where possible
+- **Resource Efficiency**: Better utilization of GitHub Actions runners
+- **Clear Separation**: Testing and deployment concerns are separated
+- **Dependency Management**: Build jobs only run after successful tests
+
+### Required Secrets
+For the workflows to function properly, ensure these secrets are configured in GitHub:
+
+```bash
+# Vercel deployment secrets
+VERCEL_TOKEN=your_vercel_token
+VERCEL_ORG_ID=your_org_id
+VERCEL_PROJECT_ID=your_project_id
+
+# GitHub token (automatically provided)
+GITHUB_TOKEN=automatically_provided
+```
+
 ## Integration with Claude Code PM
 
 The GitHub CLI setup enables:
@@ -159,10 +196,12 @@ The GitHub CLI setup enables:
 - Parent-child issue relationships
 - Parallel agent coordination
 - Repository state synchronization
+- CI/CD workflow management and monitoring
 
 ## Next Steps
 
 1. Configure Claude Code PM to use GitHub CLI
 2. Set up automated issue workflows
 3. Test parallel agent coordination
-4. Monitor and optimize performance
+4. Monitor and optimize CI/CD performance
+5. Extend workflows with additional testing (unit tests, E2E tests)
