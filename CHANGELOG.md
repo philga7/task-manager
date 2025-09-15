@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file. See [standa
   * Release workflow now has separate `test` (linting) and `build` (build + release) jobs
   * Build jobs now depend on successful test job completion
   * Improved workflow efficiency and faster feedback on test failures
+  * Updated Node.js version from 18 to 20 to meet semantic-release requirements
 
 # [1.3.0](https://github.com/philga7/task-manager/compare/v1.2.0...v1.3.0) (2025-09-14)
 

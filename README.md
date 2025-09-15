@@ -54,7 +54,7 @@ Includes a fully functional demo mode with sample data. Click "Try Demo" in the 
 ## 📦 Quick Start
 
 ### Prerequisites
-- Node.js (v16 or higher)
+- Node.js (v20 or higher)
 - npm or yarn
 
 ### Installation
