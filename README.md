@@ -151,7 +151,7 @@ This project uses GitHub Actions with optimized workflows:
 #### Deploy Workflow (`.github/workflows/deploy.yml`)
 - **Test Job**: Runs linting and code quality checks
 - **Build Job**: Builds the project and deploys to Vercel (depends on test success)
-- **Triggers**: Push to main, pull requests, and releases
+- **Triggers**: Pull requests to main and published releases
 
 #### Release Workflow (`.github/workflows/release.yml`)
 - **Test Job**: Runs linting and code quality checks

@@ -161,7 +161,7 @@ The project includes optimized GitHub Actions workflows:
 - **Test Job**: Runs ESLint for code quality checks
 - **Build Job**: Builds the project and deploys to Vercel
 - **Dependencies**: Build job depends on successful test completion
-- **Triggers**: Push to main, pull requests, and releases
+- **Triggers**: Pull requests to main and published releases
 
 #### Release Workflow (`.github/workflows/release.yml`)
 - **Test Job**: Runs ESLint for code quality checks
