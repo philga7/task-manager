@@ -8,6 +8,13 @@ All notable changes to this project will be documented in this file. See [standa
 
 ### CI/CD Improvements
 
+* **Semantic Versioning:** Updated semantic release configuration to match test-automation-harness pattern
+  * Added `.releaserc.json` configuration with proper branch setup (main for production, develop for alpha releases)
+  * Configured semantic-release plugins: commit-analyzer, release-notes-generator, changelog, and github
+  * Updated GitHub Actions release workflow to support both main and develop branches
+  * Added conventional commits preset for consistent commit message parsing
+  * Improved release management with structured alpha releases on develop branch and stable releases on main branch
+
 * **GitHub Actions:** Split CI workflows into separate test and build jobs for better performance and parallelization
   * Deploy workflow now has separate `test` (linting) and `build` (build + deploy) jobs
   * Release workflow now has separate `test` (linting) and `build` (build + release) jobs
