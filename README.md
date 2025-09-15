@@ -155,8 +155,9 @@ This project uses GitHub Actions with optimized workflows:
 
 #### Release Workflow (`.github/workflows/release.yml`)
 - **Test Job**: Runs linting and code quality checks
-- **Build Job**: Builds the project and runs semantic-release (depends on test success)
-- **Triggers**: Push to main (excluding changelog and package-lock changes)
+- **Release Job**: Runs semantic-release for automated versioning and publishing (depends on test success)
+- **Triggers**: Push to main and develop branches (excluding changelog and package-lock changes)
+- **Branch Strategy**: Main branch for production releases, develop branch for alpha releases
 
 **Benefits:**
 - Faster feedback on code quality issues
@@ -165,10 +166,11 @@ This project uses GitHub Actions with optimized workflows:
 - Clear separation of concerns between testing and deployment
 
 ### Automated Releases
-This project uses semantic-release for automated versioning and releases. The system automatically:
-- Analyzes commit messages to determine version bumps
-- Generates changelogs and release notes
+This project uses semantic-release for automated versioning and releases following the test-automation-harness pattern. The system automatically:
+- Analyzes commit messages to determine version bumps using conventional commits
+- Generates changelogs and release notes from commit history
 - Creates GitHub releases with proper tagging
+- Supports dual-branch strategy: main for production, develop for alpha releases
 - Triggers deployments on release publication
 
 #### Commit Message Format
