@@ -49,6 +49,7 @@ Includes a fully functional demo mode with sample data. Click "Try Demo" in the 
 - **State Management**: React Context API with useReducer pattern
 - **Routing**: React Router DOM with protected routes
 - **Storage**: Local Storage with robust data persistence
+- **Testing**: Vitest, React Testing Library, @testing-library/user-event
 - **Development**: ESLint, PostCSS, TypeScript ESLint
 
 ## 📦 Quick Start
@@ -88,6 +89,16 @@ npm run build    # Production build
 npm run preview  # Preview production build
 npm run lint     # Code quality check
 ```
+
+### Testing Commands
+```bash
+npm test              # Run tests in watch mode (development)
+npm run test:run      # Run tests once (CI/CD)
+npm run test:ui       # Open visual test dashboard
+npm run test:coverage # Generate coverage report
+```
+
+See [Testing Guide](src/tests/README.md) for comprehensive testing documentation.
 
 ## 🎮 Usage Guide
 
@@ -129,12 +140,48 @@ src/
 │   ├── Layout/         # Layout and navigation
 │   ├── Projects/       # Project components
 │   ├── Tasks/          # Task components
-│   └── UI/             # Generic UI components
+│   └── UI/             # Generic UI components (with tests)
 ├── context/            # React Context and state management
 ├── pages/              # Main application pages
+├── tests/              # Test utilities and configuration
+│   ├── setup.ts        # Global test setup
+│   ├── test-utils.tsx  # Reusable test helpers
+│   └── README.md       # Comprehensive testing guide
 ├── types/              # TypeScript type definitions
 └── utils/              # Utility functions and helpers
 ```
+
+## 🧪 Testing
+
+This project uses **Vitest** with **React Testing Library** for comprehensive testing:
+
+- **Unit Tests**: Component and utility function tests
+- **Integration Tests**: Multi-component interaction tests
+- **Coverage**: 80%+ coverage target for new code
+- **TDD Approach**: RED-GREEN-REFACTOR cycle
+
+### Testing Philosophy
+
+- ✅ Test user-visible behavior, not implementation details
+- ✅ Use accessibility-first queries (getByRole, getByLabelText)
+- ✅ Test edge cases and error states
+- ✅ Mock external dependencies appropriately
+- ✅ Write descriptive test names that explain intent
+
+### Example Test
+
+```typescript
+it('should disable submit button when form is invalid', async () => {
+  const user = userEvent.setup();
+  render(<TaskForm />);
+  
+  await user.click(screen.getByRole('button', { name: /submit/i }));
+  
+  expect(screen.getByRole('button')).toBeDisabled();
+});
+```
+
+For detailed testing guidelines, see [Testing Guide](src/tests/README.md).
 
 ## 🚀 Deployment
 
