@@ -157,6 +157,87 @@ saveToStorage('demo', updatedData);
 - [ ] Test data persistence across page refreshes
 - [ ] Test error scenarios and recovery
 
+## Testing Standards
+
+### Test Framework
+- **Unit Testing**: Vitest with React Testing Library
+- **Test Location**: Component tests live next to components (`ComponentName.test.tsx`)
+- **Test Utilities**: Use `src/tests/test-utils.tsx` for reusable patterns
+- **Coverage**: Run `npm run test:coverage` to generate reports
+
+### Writing Tests
+- **ALWAYS** follow the AAA pattern (Arrange-Act-Assert)
+- **ALWAYS** use accessibility-first queries (getByRole, getByLabelText)
+- **ALWAYS** use userEvent instead of fireEvent for interactions
+- **ALWAYS** test user-visible behavior, not implementation details
+- **ALWAYS** write descriptive test names that explain intent
+- **ALWAYS** test edge cases (empty states, long text, past dates, null values)
+- **ALWAYS** mock external dependencies (API calls, localStorage)
+
+### Test Patterns
+```typescript
+// ✅ Good - Tests behavior
+it('should disable submit button when form is invalid', async () => {
+  const user = userEvent.setup();
+  render(<TaskForm />);
+  
+  await user.click(screen.getByRole('button', { name: /submit/i }));
+  
+  expect(screen.getByRole('button')).toBeDisabled();
+});
+
+// ❌ Bad - Tests implementation
+it('should set isValid to false', () => {
+  expect(component.state.isValid).toBe(false);
+});
+```
+
+### Running Tests
+```bash
+npm test              # Watch mode for development
+npm run test:run      # Single run for CI/CD
+npm run test:ui       # Visual test dashboard
+npm run test:coverage # Generate coverage reports
+```
+
+### Test Coverage Requirements
+- **Minimum Coverage**: 80% for new components
+- **Required Tests**: All public component props and user interactions
+- **Excluded from Coverage**: Test files, config files, types-only files
+
+### Testing Components with Context
+```typescript
+// Use test utilities for components that need AppContext
+import { renderWithAppContext } from '@/tests/test-utils';
+
+it('should display tasks from context', () => {
+  renderWithAppContext(<TaskList />, { 
+    initialState: { tasks: [mockTask] } 
+  });
+  
+  expect(screen.getByText('Test Task')).toBeInTheDocument();
+});
+```
+
+### Testing Async Behavior
+```typescript
+// Use findBy queries for async elements
+const element = await screen.findByText('Loaded data');
+
+// Or use waitFor for complex conditions
+await waitFor(() => {
+  expect(screen.getByText('Success')).toBeInTheDocument();
+});
+```
+
+### Prohibited Testing Practices
+- **NEVER** test third-party libraries (trust they work)
+- **NEVER** use snapshots as the primary testing method
+- **NEVER** write tests that depend on each other
+- **NEVER** use `any` type in test files
+- **NEVER** skip testing error states and edge cases
+- **NEVER** test implementation details (internal state, private methods)
+
 ## Prohibited Actions
 
 ### Security and Data Protection

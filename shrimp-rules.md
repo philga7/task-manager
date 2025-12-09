@@ -284,16 +284,140 @@ setTasks(tasks.map(t => t.id === taskId ? { ...t, status: 'completed' } : t));
 dispatch({ type: 'COMPLETE_TASK', payload: taskId });
 ```
 
+## Testing Standards
+
+### Test Framework Setup
+- **Framework**: Vitest with React Testing Library
+- **Environment**: jsdom for DOM simulation
+- **Coverage**: v8 provider with HTML/JSON/text reports
+- **UI Dashboard**: Available via `npm run test:ui`
+
+### Test File Organization
+- **Component Tests**: Place next to component (`Button.tsx` → `Button.test.tsx`)
+- **Utility Tests**: Place in same directory as utility (`storage.ts` → `storage.test.ts`)
+- **Integration Tests**: Place in `src/tests/` with `.integration.test.tsx` suffix
+- **Test Utilities**: Centralized in `src/tests/test-utils.tsx`
+
+### Writing Tests (TDD Approach)
+1. **RED**: Write failing test that defines expected behavior
+2. **GREEN**: Write minimal code to make test pass
+3. **REFACTOR**: Improve code quality while maintaining green tests
+
+### Test Structure (AAA Pattern)
+```typescript
+it('should render task with correct priority', () => {
+  // Arrange - Set up test data
+  const task = createMockTask({ priority: 'high' });
+  
+  // Act - Execute the code being tested
+  render(<TaskCard task={task} />);
+  
+  // Assert - Verify the results
+  expect(screen.getByText('High Priority')).toBeInTheDocument();
+});
+```
+
+### Query Priority (Accessibility First)
+1. **getByRole** - Preferred (accessible to screen readers)
+2. **getByLabelText** - Good for form fields
+3. **getByPlaceholderText** - Acceptable for inputs
+4. **getByText** - Good for content
+5. **getByTestId** - Last resort (implementation detail)
+
+### Testing User Interactions
+```typescript
+import userEvent from '@testing-library/user-event';
+
+it('should call onClick when button is clicked', async () => {
+  const handleClick = vi.fn();
+  const user = userEvent.setup();
+  
+  render(<Button onClick={handleClick}>Click me</Button>);
+  await user.click(screen.getByRole('button'));
+  
+  expect(handleClick).toHaveBeenCalledTimes(1);
+});
+```
+
+### Testing Async Behavior
+```typescript
+// Use findBy for elements that appear asynchronously
+const element = await screen.findByText('Loaded data');
+
+// Use waitFor for complex async conditions
+await waitFor(() => {
+  expect(screen.getByText('Success')).toBeInTheDocument();
+});
+```
+
+### Mocking Patterns
+```typescript
+import { vi } from 'vitest';
+
+// Mock functions
+const mockFn = vi.fn().mockReturnValue('value');
+const mockAsync = vi.fn().mockResolvedValue({ data: 'test' });
+
+// Mock modules
+vi.mock('../services/api', () => ({
+  fetchData: vi.fn().mockResolvedValue({ success: true })
+}));
+```
+
+### Test Coverage Requirements
+- **Minimum**: 80% coverage for new components
+- **Required Tests**: All props, user interactions, edge cases
+- **Edge Cases**: Empty states, null values, long text, past dates
+- **Error States**: Loading, error messages, validation failures
+
+### Testing with Context
+```typescript
+// Use test utilities for components that need providers
+import { renderWithRouter, createMockTask } from '@/tests/test-utils';
+
+it('should navigate on click', async () => {
+  const user = userEvent.setup();
+  renderWithRouter(<TaskList />);
+  
+  await user.click(screen.getByText('View Task'));
+  // Assert navigation occurred
+});
+```
+
+### Prohibited Testing Practices
+- ❌ **Never test implementation details** (internal state, private methods)
+- ❌ **Never use fireEvent** (use userEvent instead)
+- ❌ **Never skip edge cases** (test happy path AND error cases)
+- ❌ **Never use vague test names** (be descriptive and specific)
+- ❌ **Never test third-party libraries** (trust they work)
+- ❌ **Never write dependent tests** (each test should be independent)
+- ❌ **Never use `any` type** (maintain TypeScript strictness)
+
+### Running Tests
+```bash
+npm test              # Watch mode (development)
+npm run test:run      # Single run (CI/CD)
+npm run test:ui       # Visual dashboard
+npm run test:coverage # Coverage report
+```
+
+### Test Documentation
+- **Testing Guide**: See `src/tests/README.md` for comprehensive documentation
+- **Example Tests**: See `src/components/UI/Button.test.tsx` for patterns
+- **Test Utilities**: See `src/tests/test-utils.tsx` for reusable helpers
+
 ## Critical Rules Summary
 
 1. **Always use AppContext for state management**
 2. **Always define TypeScript interfaces for components**
 3. **Always use Tailwind CSS for styling**
 4. **Always update related files when adding features**
-5. **Never modify state directly without dispatch**
-6. **Never create components outside established structure**
-7. **Never use custom CSS or inline styles**
-8. **Always follow established naming conventions**
-9. **Always use proper error handling in context hooks**
-10. **Always maintain responsive design patterns**
-11. **Always append new tasks to existing completed tasks - never delete or replace completed tasks**
+5. **Always write tests for new components (TDD preferred)**
+6. **Never modify state directly without dispatch**
+7. **Never create components outside established structure**
+8. **Never use custom CSS or inline styles**
+9. **Always follow established naming conventions**
+10. **Always use proper error handling in context hooks**
+11. **Always maintain responsive design patterns**
+12. **Always append new tasks to existing completed tasks - never delete or replace completed tasks**
+13. **Always test user-visible behavior, not implementation details**
