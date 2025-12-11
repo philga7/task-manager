@@ -368,6 +368,8 @@ vi.mock('../services/api', () => ({
 - **Minimum**: 80% coverage for new components
 - **Required Tests**: All props, user interactions, edge cases
 - **Edge Cases**: Empty states, null values, long text, past dates
+- **Project Status**: 100 tests passing, 99.21% coverage on validation utilities
+- **Best Practice Example**: `src/utils/validation.test.ts` demonstrates comprehensive TDD approach
 - **Error States**: Loading, error messages, validation failures
 
 ### Testing with Context
@@ -399,6 +401,10 @@ npm test              # Watch mode (development)
 npm run test:run      # Single run (CI/CD)
 npm run test:ui       # Visual dashboard
 npm run test:coverage # Coverage report
+
+# Run specific test suites
+npm test -- src/utils/validation.test.ts  # Validation tests (79 tests)
+npm test -- src/components/UI/Button.test.tsx  # Button tests (14 tests)
 ```
 
 ### Test Documentation
