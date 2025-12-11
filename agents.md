@@ -204,6 +204,11 @@ npm run test:coverage # Generate coverage reports
 - **Minimum Coverage**: 80% for new components
 - **Required Tests**: All public component props and user interactions
 - **Excluded from Coverage**: Test files, config files, types-only files
+- **Current Project Coverage**: 100 tests across 4 test suites
+  - Validation utilities: 79 tests, 99.21% coverage ✅
+  - UI components: 14 tests ✅
+  - React integration: 4 tests ✅
+  - Setup/config: 3 tests ✅
 
 ### Testing Components with Context
 ```typescript
@@ -237,6 +242,60 @@ await waitFor(() => {
 - **NEVER** use `any` type in test files
 - **NEVER** skip testing error states and edge cases
 - **NEVER** test implementation details (internal state, private methods)
+- **NEVER** use hardcoded empty arrays as test data (use realistic mock data)
+
+### Validation Testing Best Practices (Reference: validation.test.ts)
+The validation utilities test suite demonstrates exemplary TDD practices:
+
+**Mock Data Strategy**:
+```typescript
+// ✅ Good - Realistic mock data with proper structure
+const createMockTask = (overrides = {}) => ({
+  id: 'task-001',
+  title: 'Test Task',
+  priority: 'medium',
+  status: 'todo',
+  createdAt: new Date('2024-01-01'),
+  tags: [],
+  ...overrides,
+});
+
+// ❌ Bad - Hardcoded empty arrays
+const task = { id: '', title: '', tags: [] };
+```
+
+**Edge Case Coverage**:
+- ✅ Unicode characters (emoji 🚀, Chinese 中文, Cyrillic Русский)
+- ✅ Special characters (`<script>`, quotes, symbols)
+- ✅ Very long strings (5000+ characters)
+- ✅ Empty vs undefined vs whitespace-only strings
+- ✅ Boundary values (0, 100, -10, 150)
+- ✅ Circular dependencies and complex graph patterns
+
+**Test Organization**:
+- Group tests by function in describe blocks
+- Use nested describe blocks for test categories (Happy Path, Error Cases, Warning Cases, Edge Cases)
+- Write descriptive test names: "should return valid when task exists and belongs to same project"
+- Follow AAA pattern consistently (Arrange-Act-Assert)
+
+**Comprehensive Assertions**:
+```typescript
+// ✅ Good - Multiple specific assertions
+expect(result.isValid).toBe(false);
+expect(result.errors).toHaveLength(1);
+expect(result.errors[0].field).toBe('title');
+expect(result.errors[0].message).toBe('Task title is required');
+expect(result.errors[0].severity).toBe('error');
+
+// ❌ Bad - Single vague assertion
+expect(result).toBeTruthy();
+```
+
+**Documentation**:
+- Add inline comments explaining complex test logic
+- Create separate .test.md file for comprehensive documentation
+- Document edge cases and why they're important
+- Include coverage analysis and maintenance guidelines
 
 ## Prohibited Actions
 
