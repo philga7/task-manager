@@ -204,8 +204,9 @@ npm run test:coverage # Generate coverage reports
 - **Minimum Coverage**: 80% for new components
 - **Required Tests**: All public component props and user interactions
 - **Excluded from Coverage**: Test files, config files, types-only files
-- **Current Project Coverage**: 100 tests across 4 test suites
+- **Current Project Coverage**: 146 tests across 5 test suites
   - Validation utilities: 79 tests, 99.21% coverage ✅
+  - Storage utilities: 46 tests, 100% pass rate ✅
   - UI components: 14 tests ✅
   - React integration: 4 tests ✅
   - Setup/config: 3 tests ✅
@@ -296,6 +297,117 @@ expect(result).toBeTruthy();
 - Create separate .test.md file for comprehensive documentation
 - Document edge cases and why they're important
 - Include coverage analysis and maintenance guidelines
+
+### Storage Testing Best Practices (Reference: storage.test.ts)
+The storage utilities test suite demonstrates comprehensive TDD methodology and critical bug validation:
+
+**Critical Test Areas**:
+```typescript
+// ✅ Namespace Isolation (CRITICAL for demo mode)
+describe('Namespace Isolation', () => {
+  it('should add "demo:" prefix in demo mode', () => {
+    sessionStorage.setItem('task_manager_session', JSON.stringify({ isDemoMode: true }));
+    saveToStorage('task-manager-state', demoState);
+    expect(localStorage.getItem('demo:task-manager-state')).not.toBeNull();
+  });
+  
+  it('should isolate demo data from real user data', () => {
+    // Save real data
+    sessionStorage.setItem('task_manager_session', JSON.stringify({ isDemoMode: false }));
+    saveToStorage('key', realState);
+    
+    // Save demo data
+    sessionStorage.setItem('task_manager_session', JSON.stringify({ isDemoMode: true }));
+    saveToStorage('key', demoState);
+    
+    // Verify both exist independently
+    expect(localStorage.getItem('key')).not.toBeNull(); // Real data
+    expect(localStorage.getItem('demo:key')).not.toBeNull(); // Demo data
+  });
+});
+```
+
+**Storage Mock Strategy**:
+```typescript
+// ✅ Good - Custom StorageMock implementing Storage interface
+class StorageMock implements Storage {
+  private store: Record<string, string> = {};
+  
+  getItem(key: string): string | null {
+    return this.store[key] || null;
+  }
+  
+  setItem(key: string, value: string): void {
+    this.store[key] = value;
+  }
+  
+  removeItem(key: string): void {
+    delete this.store[key];
+  }
+  
+  clear(): void {
+    this.store = {};
+  }
+  
+  key(index: number): string | null {
+    return Object.keys(this.store)[index] || null;
+  }
+  
+  get length(): number {
+    return Object.keys(this.store).length;
+  }
+}
+
+// Use in beforeEach for test isolation
+beforeEach(() => {
+  localStorageMock = new StorageMock();
+  sessionStorageMock = new StorageMock();
+  
+  Object.defineProperty(global, 'localStorage', {
+    value: localStorageMock,
+    writable: true,
+  });
+  
+  Object.defineProperty(global, 'sessionStorage', {
+    value: sessionStorageMock,
+    writable: true,
+  });
+});
+```
+
+**Console Output Management**:
+```typescript
+// ✅ Suppress expected errors for clean test output
+beforeAll(() => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  vi.spyOn(console, 'log').mockImplementation(() => {});
+});
+
+afterAll(() => {
+  vi.restoreAllMocks();
+});
+```
+
+**Historical Bug Validation**:
+- ✅ Demo mode data leakage (Task 9f78e309) - 5 namespace isolation tests
+- ✅ iPhone Safari compatibility (Task 3a38bbe8) - Mobile browser fallback tests
+- ✅ Authentication corruption (Task 4e3428a6) - Deployment validation tests
+
+**Test Organization**:
+- 10 test groups covering all functionality
+- 46 comprehensive tests (306% over target)
+- Integration tests for complete workflows
+- Edge cases: empty data, large data (10K tasks), concurrent operations
+- Error handling: QuotaExceededError, corrupted data, missing properties
+
+**Key Learnings**:
+- Mock storage instances, not prototypes
+- Test namespace isolation thoroughly (critical for demo mode)
+- Suppress expected console errors for clean output
+- Use realistic mock data with Date objects
+- Test complete save/load cycles, not just individual functions
+- Document historical bugs that tests validate
 
 ## Prohibited Actions
 
