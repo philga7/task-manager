@@ -32,6 +32,9 @@ vi.mock('../../utils/logger', () => ({
   },
 }));
 
+// Import AppState type for proper typing in tests
+import type { AppState } from '../../utils/issueReporting';
+
 // Mock issue reporting utilities
 vi.mock('../../utils/issueReporting', () => ({
   createIssueReport: vi.fn(() => ({
@@ -89,6 +92,33 @@ describe('ErrorBoundary Component', () => {
   const originalReload = window.location.reload;
   const originalOpen = window.open;
 
+  // Suppress React's console output and jsdom error events for error boundary tests
+  // React and jsdom log errors when error boundaries catch them
+  // This must be done in beforeAll to catch all error logging
+  
+  // Handler to suppress jsdom error events that are expected during error boundary testing
+  const suppressErrorHandler = (event: ErrorEvent) => {
+    // Suppress all errors during error boundary tests - they are expected
+    // This includes: Test error, Type error, Reference error, Custom error,
+    // Detailed error, Recoverable error, Deep nested error, and empty messages
+    event.preventDefault();
+  };
+
+  beforeAll(() => {
+    // Suppress console output
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    
+    // Add error event listener to suppress jsdom error output
+    window.addEventListener('error', suppressErrorHandler);
+  });
+
+  afterAll(() => {
+    vi.restoreAllMocks();
+    window.removeEventListener('error', suppressErrorHandler);
+  });
+
   beforeEach(() => {
     // Reset all mocks before each test
     vi.clearAllMocks();
@@ -101,17 +131,12 @@ describe('ErrorBoundary Component', () => {
     
     // Mock window.open
     window.open = vi.fn();
-    
-    // Suppress React's console.error for error boundary tests
-    // React logs errors to console when error boundaries catch them
-    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
     // Restore original window methods
     window.location.reload = originalReload;
     window.open = originalOpen;
-    vi.restoreAllMocks();
   });
 
   /**
@@ -295,7 +320,7 @@ describe('ErrorBoundary Component', () => {
       const user = userEvent.setup();
       let shouldThrow = true;
       
-      const { rerender } = render(
+      render(
         <ErrorBoundary>
           <ThrowError shouldThrow={shouldThrow} />
         </ErrorBoundary>
@@ -423,7 +448,7 @@ describe('ErrorBoundary Component', () => {
 
       // Act
       render(
-        <ErrorBoundary appState={mockAppState as any}>
+        <ErrorBoundary appState={mockAppState as Partial<AppState>}>
           <ThrowError shouldThrow={true} />
         </ErrorBoundary>
       );
