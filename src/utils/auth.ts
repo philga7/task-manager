@@ -502,7 +502,7 @@ export function userExists(email: string): boolean {
  */
 export function getUserByEmail(email: string): User | null {
   const users = getRegisteredUsers();
-  const storedUser = users.find(user => user.email.toLowerCase() === email.toLowerCase());
+  const storedUser = users.find(user => user.email && user.email.toLowerCase() === email.toLowerCase());
   
   if (!storedUser) {
     return null;
