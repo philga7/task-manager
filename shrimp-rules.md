@@ -368,21 +368,27 @@ vi.mock('../services/api', () => ({
 - **Minimum**: 80% coverage for new components
 - **Required Tests**: All props, user interactions, edge cases
 - **Edge Cases**: Empty states, null values, long text, past dates
-- **Project Status**: 335 tests passing across 9 test suites (100% pass rate)
+- **Project Status**: 472 tests passing across 12 test suites (100% pass rate)
   - Authentication utilities: 109 tests, 71.87% coverage ✅
   - Validation utilities: 79 tests, 99.21% coverage ✅
+  - RegisterForm component: 57 tests, 95.0% coverage ✅
+  - LoginForm component: 49 tests, 93.54% coverage ✅
   - Storage utilities: 46 tests, 100% pass rate ✅
   - EmptyState component: 42 tests, 88.88% coverage ✅
+  - ErrorBoundary component: 31 tests, 95.0% coverage ✅
   - LoadingSpinner component: 25 tests, 100% coverage ✅
-  - Button component: 14 tests, 83.33% coverage ✅
+  - Button component: 14 tests, 100% coverage ✅
   - Card component: 13 tests, 100% coverage ✅
   - React integration: 4 tests ✅
   - Setup/config: 3 tests ✅
 - **Best Practice Examples**: 
   - `src/utils/auth.test.ts` - Authentication testing with Web Crypto API mocking (109 tests)
   - `src/utils/validation.test.ts` - Comprehensive validation testing (79 tests)
+  - `src/components/Auth/RegisterForm.test.tsx` - Form testing with password strength (57 tests)
+  - `src/components/Auth/LoginForm.test.tsx` - Form validation and loading states (49 tests)
   - `src/utils/storage.test.ts` - Storage utilities with TDD methodology (46 tests)
   - `src/components/UI/EmptyState.test.tsx` - UI component testing with accessibility (42 tests)
+  - `src/components/UI/ErrorBoundary.test.tsx` - Error boundary testing patterns (31 tests)
 - **Error States**: Loading, error messages, validation failures
 
 ### Testing with Context
@@ -424,6 +430,48 @@ npm test -- src/components/UI/Button.test.tsx  # Button tests (14 tests)
 - **Testing Guide**: See `src/tests/README.md` for comprehensive documentation
 - **Example Tests**: See `src/components/UI/Button.test.tsx` for patterns
 - **Test Utilities**: See `src/tests/test-utils.tsx` for reusable helpers
+
+## Cipher Memory System
+
+Cipher stores project knowledge across sessions. Use `cipher_extract_and_operate_memory` correctly:
+
+### Correct Usage
+```typescript
+// ✅ CORRECT - Array of declarative factual statements
+{
+  interaction: [
+    "Task-manager project has 472 tests across 12 test suites.",
+    "ErrorBoundary.test.tsx has 31 tests at 95% coverage.",
+    "The createMockProps pattern provides reusable mock props."
+  ],
+  memoryMetadata: { projectId: "task-manager" },
+  options: {
+    enableBatchProcessing: true,
+    useLLMDecisions: true,
+    similarityThreshold: 0.9,   // High = triggers ADD for new facts
+    confidenceThreshold: 0.3    // Low = allows more facts through
+  }
+}
+```
+
+### Common Mistakes
+- ❌ **Never use single instruction strings** (`"Remember this..."`)
+- ❌ **Never start facts with "User request:" or "Remember"**
+- ❌ **Never skip `enableBatchProcessing: true`**
+- ❌ **Never use low `similarityThreshold`** (causes NONE instead of ADD)
+
+### Memory Events
+| Event | Meaning |
+|-------|---------|
+| `ADD` | New memory created |
+| `UPDATE` | Existing memory updated |
+| `NONE` | No action (too similar or high confidence) |
+
+### Workflow
+1. **Search first**: Use `cipher_memory_search` to check existing memories
+2. **Format facts**: Write declarative statements, not instructions
+3. **Use array format**: Each fact as separate string in array
+4. **Set options**: `enableBatchProcessing: true`, `similarityThreshold: 0.9`
 
 ## Critical Rules Summary
 

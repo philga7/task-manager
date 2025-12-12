@@ -204,13 +204,16 @@ npm run test:coverage # Generate coverage reports
 - **Minimum Coverage**: 80% for new components
 - **Required Tests**: All public component props and user interactions
 - **Excluded from Coverage**: Test files, config files, types-only files
-- **Current Project Coverage**: 335 tests across 9 test suites
+- **Current Project Coverage**: 472 tests across 12 test suites
  - Authentication utilities: 109 tests, 71.87% coverage ✅
  - Validation utilities: 79 tests, 99.21% coverage ✅
+ - RegisterForm component: 57 tests, 95.0% coverage ✅
+ - LoginForm component: 49 tests, 93.54% coverage ✅
  - Storage utilities: 46 tests, 100% pass rate ✅
  - EmptyState component: 42 tests, 88.88% coverage ✅
+ - ErrorBoundary component: 31 tests, 95.0% coverage ✅
  - LoadingSpinner component: 25 tests, 100% coverage ✅
- - Button component: 14 tests, 83.33% coverage ✅
+ - Button component: 14 tests, 100% coverage ✅
  - Card component: 13 tests, 100% coverage ✅
  - React integration: 4 tests ✅
  - Setup/config: 3 tests ✅
@@ -413,6 +416,146 @@ afterAll(() => {
 - Test complete save/load cycles, not just individual functions
 - Document historical bugs that tests validate
 
+### Auth Component Testing Best Practices (Reference: LoginForm.test.tsx, RegisterForm.test.tsx)
+The authentication form test suites demonstrate comprehensive form testing with 106 combined tests:
+
+**Mock Props Factory Pattern**:
+```typescript
+// ✅ Good - Reusable mock props with overrides
+const createMockProps = (overrides = {}) => ({
+  onClose: vi.fn(),
+  onSwitchToRegister: vi.fn(),
+  onSubmit: vi.fn(),
+  isLoading: false,
+  error: undefined as string | undefined,
+  ...overrides,
+});
+
+// Usage in tests
+render(<LoginForm {...createMockProps({ isLoading: true })} />);
+```
+
+**Form Validation Testing**:
+```typescript
+// ✅ Test HTML5 native validation AND custom validation
+it('should have required attribute for native validation', () => {
+  render(<LoginForm {...createMockProps()} />);
+  expect(screen.getByPlaceholderText(/enter your email/i)).toHaveAttribute('required');
+});
+
+it('should show error for invalid email format', async () => {
+  // Use email that passes browser but fails custom regex
+  await user.type(emailInput, 'test@test'); // Missing domain extension
+  await user.click(submitButton);
+  expect(screen.getByText(/valid email address/i)).toBeInTheDocument();
+});
+```
+
+**Password Strength Indicator Testing**:
+```typescript
+// ✅ Test progressive strength levels
+const strengthTests = [
+  { input: 'abc', expected: 'Weak' },
+  { input: 'Abcdefgh', expected: 'Fair' },
+  { input: 'Abcdefg1', expected: 'Good' },
+  { input: 'Abcdefg1!', expected: 'Strong' },
+];
+
+strengthTests.forEach(({ input, expected }) => {
+  it(`should show "${expected}" for password: ${input}`, async () => {
+    await user.type(passwordInput, input);
+    expect(screen.getByText(new RegExp(expected, 'i'))).toBeInTheDocument();
+  });
+});
+```
+
+**Loading State Testing**:
+```typescript
+// ✅ Test all inputs/buttons disabled during loading
+it('should disable all form controls when loading', () => {
+  render(<LoginForm {...createMockProps({ isLoading: true })} />);
+  
+  expect(screen.getByPlaceholderText(/email/i)).toBeDisabled();
+  expect(screen.getByPlaceholderText(/password/i)).toBeDisabled();
+  expect(screen.getByRole('button', { name: /signing in/i })).toBeDisabled();
+});
+```
+
+**Password Visibility Toggle Testing**:
+```typescript
+// ✅ Test toggle behavior
+it('should toggle password visibility', async () => {
+  const passwordInput = screen.getByPlaceholderText(/password/i);
+  const toggleButton = passwordInput.parentElement?.querySelector('button');
+  
+  expect(passwordInput).toHaveAttribute('type', 'password');
+  await user.click(toggleButton!);
+  expect(passwordInput).toHaveAttribute('type', 'text');
+  await user.click(toggleButton!);
+  expect(passwordInput).toHaveAttribute('type', 'password');
+});
+```
+
+**Key Testing Categories for Auth Forms**:
+- ✅ Basic Rendering (heading, inputs, buttons, labels)
+- ✅ Form Validation (required fields, format validation, length requirements)
+- ✅ Password Strength (Weak/Fair/Good/Strong indicators)
+- ✅ Password Match (confirmation field validation)
+- ✅ Loading State (disabled controls, loading text)
+- ✅ Error Display (auth errors with proper ARIA attributes)
+- ✅ User Interactions (close, switch forms, submit)
+- ✅ Accessibility (labels, keyboard navigation, ARIA)
+- ✅ Edge Cases (unicode, special characters, boundary values)
+
+### ErrorBoundary Testing Best Practices (Reference: ErrorBoundary.test.tsx)
+The ErrorBoundary test suite demonstrates React error boundary testing with 31 tests:
+
+**Test Components for Error Triggering**:
+```typescript
+// ✅ Create controllable error-throwing components
+function ThrowError({ shouldThrow, errorMessage = 'Test error' }: Props) {
+  if (shouldThrow) {
+    throw new Error(errorMessage);
+  }
+  return <div data-testid="child-component">Success</div>;
+}
+
+function ThrowTypedError({ errorType }: { errorType: 'TypeError' | 'ReferenceError' }) {
+  if (errorType === 'TypeError') throw new TypeError('Type error');
+  throw new ReferenceError('Reference error');
+}
+```
+
+**Mocking Error Reporting Utilities**:
+```typescript
+// ✅ Mock issue reporting to prevent side effects
+vi.mock('../../utils/issueReporting', () => ({
+  createIssueReport: vi.fn(() => ({ id: 'test-id', ... })),
+  generateGitHubIssueUrl: vi.fn(() => 'https://github.com/...'),
+  saveIssueReport: vi.fn(),
+}));
+```
+
+**Testing Error Recovery**:
+```typescript
+// ✅ Test recovery buttons
+it('should call reload when Refresh Page clicked', async () => {
+  render(<ErrorBoundary><ThrowError shouldThrow={true} /></ErrorBoundary>);
+  await user.click(screen.getByRole('button', { name: /refresh page/i }));
+  expect(window.location.reload).toHaveBeenCalled();
+});
+```
+
+**Key Testing Categories for Error Boundaries**:
+- ✅ Children rendering when no error
+- ✅ Custom fallback rendering
+- ✅ Error UI display (heading, buttons, icons)
+- ✅ Recovery mechanisms (Try Again, Refresh, Report)
+- ✅ Issue reporting integration
+- ✅ Different error types (TypeError, ReferenceError)
+- ✅ Edge cases (empty message, undefined stack)
+- ✅ Accessibility (heading levels, keyboard navigation)
+
 ## Prohibited Actions
 
 ### Security and Data Protection
@@ -503,6 +646,82 @@ afterAll(() => {
 - **ALWAYS** ensure mobile Safari compatibility
 - **ALWAYS** handle browser-specific storage limitations
 - **ALWAYS** provide graceful degradation for unsupported features
+
+## Cipher Memory System
+
+Cipher is the project's knowledge memory layer for storing and retrieving facts across sessions.
+
+### Using `cipher_extract_and_operate_memory`
+
+**Required Format**: Pass `interaction` as an **array of strings**, where each string is a distinct factual statement:
+
+```typescript
+// ✅ CORRECT - Array of declarative facts
+interaction: [
+  "Task-manager project has 472 tests across 12 test suites.",
+  "ErrorBoundary.test.tsx has 31 tests at 95% coverage.",
+  "The createMockProps pattern provides reusable mock props."
+]
+
+// ❌ WRONG - Single instruction-style string (will be skipped)
+interaction: "Remember this for project X: we have 472 tests..."
+
+// ❌ WRONG - Strings starting with "User request:" or "Remember" (often skipped)
+interaction: ["User request: Store this achievement...", "Remember that..."]
+```
+
+**Required Options for ADD Operations**:
+```typescript
+options: {
+  enableBatchProcessing: true,   // Process multiple facts together
+  useLLMDecisions: true,         // Use LLM for decision making
+  similarityThreshold: 0.9,      // High = treats facts as new, triggers ADD
+  confidenceThreshold: 0.3       // Low = allows more facts to be added
+}
+```
+
+**Optional Metadata**:
+```typescript
+memoryMetadata: {
+  projectId: "task-manager",     // Scope memories to project
+  source: "cursor-agent"         // Track where memory came from
+}
+```
+
+### Understanding Memory Events
+
+| Event | Meaning |
+|-------|---------|
+| `ADD` | New memory created successfully |
+| `UPDATE` | Existing similar memory was updated |
+| `NONE` | No action taken (too similar or high confidence) |
+| `DELETE` | Memory was removed (requires `enableDeleteOperations: true`) |
+
+### Common Issues and Solutions
+
+1. **Facts Skipped During Extraction** (extracted: 0)
+   - Make facts longer and more detailed
+   - Use declarative statements, not instructions
+   - Avoid starting with "Remember" or "User request"
+
+2. **Event is NONE Instead of ADD**
+   - Increase `similarityThreshold` to 0.9 or 0.95
+   - Decrease `confidenceThreshold` to 0.3 or lower
+   - Check if similar memory already exists with `cipher_memory_search`
+
+3. **Use `cipher_memory_search` First**
+   - Always search before adding to avoid duplicates
+   - Use specific keywords from the facts you want to store
+   - Set `top_k: 10` for comprehensive results
+
+### Best Practices
+
+- **ALWAYS** use array format for `interaction` parameter
+- **ALWAYS** write declarative factual statements
+- **ALWAYS** include `enableBatchProcessing: true` in options
+- **ALWAYS** search before adding to check for existing memories
+- **NEVER** use instruction-style text like "Remember this..."
+- **NEVER** expect single-string interactions to be extracted
 
 ---
 
