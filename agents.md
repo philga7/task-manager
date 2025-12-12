@@ -204,13 +204,15 @@ npm run test:coverage # Generate coverage reports
 - **Minimum Coverage**: 80% for new components
 - **Required Tests**: All public component props and user interactions
 - **Excluded from Coverage**: Test files, config files, types-only files
-- **Current Project Coverage**: 472 tests across 12 test suites
+- **Current Project Coverage**: 556 tests across 14 test suites
  - Authentication utilities: 109 tests, 71.87% coverage ✅
  - Validation utilities: 79 tests, 99.21% coverage ✅
  - RegisterForm component: 57 tests, 95.0% coverage ✅
+ - **TaskForm component: 52 tests, 82.75% coverage** ✅
  - LoginForm component: 49 tests, 93.54% coverage ✅
  - Storage utilities: 46 tests, 100% pass rate ✅
  - EmptyState component: 42 tests, 88.88% coverage ✅
+ - **TaskCard component: 32 tests, 93.33% coverage** ✅
  - ErrorBoundary component: 31 tests, 95.0% coverage ✅
  - LoadingSpinner component: 25 tests, 100% coverage ✅
  - Button component: 14 tests, 100% coverage ✅
@@ -506,6 +508,118 @@ it('should toggle password visibility', async () => {
 - ✅ User Interactions (close, switch forms, submit)
 - ✅ Accessibility (labels, keyboard navigation, ARIA)
 - ✅ Edge Cases (unicode, special characters, boundary values)
+
+### Task Component Testing Best Practices (Reference: TaskCard.test.tsx, TaskForm.test.tsx)
+The Task component test suites demonstrate comprehensive component testing with 84 combined tests:
+
+**Using renderWithAppContext for Context-Dependent Components**:
+```typescript
+// ✅ Custom render function wraps component with mocked AppContext
+import { renderWithAppContext, createMockTask, createMockProject } from '../../tests/test-utils';
+
+it('should dispatch UPDATE_TASK when toggling completion', async () => {
+  const task = createMockTask({ status: 'todo' });
+  const { mockDispatch } = renderWithAppContext(<TaskCard task={task} />);
+  
+  await user.click(screen.getByRole('button'));
+  
+  expect(mockDispatch).toHaveBeenCalledWith({
+    type: 'UPDATE_TASK',
+    payload: expect.objectContaining({ status: 'completed' })
+  });
+});
+```
+
+**Testing Form Fields Without htmlFor/id Associations**:
+```typescript
+// ✅ Use helper function when labels don't have proper associations
+const getFormElements = (container: HTMLElement) => ({
+  titleInput: () => screen.getByPlaceholderText(/enter task title/i),
+  prioritySelect: () => container.querySelectorAll('select')[0] as HTMLSelectElement,
+  projectSelect: () => container.querySelectorAll('select')[1] as HTMLSelectElement,
+  dateInput: () => container.querySelector('input[type="date"]') as HTMLInputElement,
+});
+
+it('should update priority when user selects', async () => {
+  const { container } = renderWithAppContext(<TaskForm onClose={mockOnClose} />);
+  const { prioritySelect } = getFormElements(container);
+  
+  await user.selectOptions(prioritySelect(), 'high');
+  expect(prioritySelect()).toHaveValue('high');
+});
+```
+
+**Testing Create vs Edit Mode**:
+```typescript
+// ✅ Test both modes with appropriate assertions
+it('should show "New Task" heading when creating', () => {
+  renderWithAppContext(<TaskForm onClose={mockOnClose} />);
+  expect(screen.getByRole('heading', { name: /new task/i })).toBeInTheDocument();
+});
+
+it('should show "Edit Task" heading when editing', () => {
+  const task = createMockTask({ title: 'Existing Task' });
+  renderWithAppContext(<TaskForm onClose={mockOnClose} task={task} />);
+  expect(screen.getByRole('heading', { name: /edit task/i })).toBeInTheDocument();
+});
+```
+
+**Testing Tag Parsing**:
+```typescript
+// ✅ Test comma-separated tags are parsed correctly
+it('should parse comma-separated tags into array', async () => {
+  const { mockDispatch } = renderWithAppContext(<TaskForm onClose={mockOnClose} />);
+  
+  await user.type(screen.getByPlaceholderText(/enter task title/i), 'Task');
+  await user.type(screen.getByPlaceholderText(/tags/i), 'bug, urgent, frontend');
+  await user.click(screen.getByRole('button', { name: /create task/i }));
+  
+  expect(mockDispatch).toHaveBeenCalledWith({
+    type: 'ADD_TASK',
+    payload: expect.objectContaining({ tags: ['bug', 'urgent', 'frontend'] })
+  });
+});
+```
+
+**Testing Priority Color Schemes**:
+```typescript
+// ✅ Test priority-based styling
+it('should apply red color scheme for high priority', () => {
+  const task = createMockTask({ priority: 'high' });
+  const { container } = renderWithAppContext(<TaskCard task={task} />);
+  const card = container.firstChild as HTMLElement;
+  
+  expect(card.className).toMatch(/bg-red-950/);
+  expect(card.className).toMatch(/border-red-800/);
+});
+```
+
+**Handling Timezone-Resilient Date Testing**:
+```typescript
+// ✅ Use regex patterns for date formatting tests
+it('should display formatted due date when provided', () => {
+  const dueDate = new Date('2024-12-15T12:00:00');  // Use midday to avoid edge cases
+  const task = createMockTask({ dueDate });
+  
+  renderWithAppContext(<TaskCard task={task} />);
+  
+  // Match pattern instead of exact string to avoid timezone issues
+  const dateElement = screen.getByText(/Dec \d{1,2}/);
+  expect(dateElement).toBeInTheDocument();
+});
+```
+
+**Key Testing Categories for Task Components**:
+- ✅ Basic Rendering (title, description, priority, due date, tags)
+- ✅ Create vs Edit mode differentiation
+- ✅ Form field population and changes
+- ✅ Form submission (ADD_TASK vs UPDATE_TASK dispatch)
+- ✅ Completion toggle with status and completedAt updates
+- ✅ Priority-based color schemes
+- ✅ Tag parsing (comma-separated to array)
+- ✅ Modal interactions (open, close, cancel)
+- ✅ Edge cases (unicode, special chars, long text)
+- ✅ Event propagation (toggle click stops propagation)
 
 ### ErrorBoundary Testing Best Practices (Reference: ErrorBoundary.test.tsx)
 The ErrorBoundary test suite demonstrates React error boundary testing with 31 tests:
