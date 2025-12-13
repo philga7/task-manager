@@ -161,7 +161,10 @@ saveToStorage('demo', updatedData);
 
 ### Test Framework
 - **Unit Testing**: Vitest with React Testing Library
-- **Test Location**: Component tests live next to components (`ComponentName.test.tsx`)
+- **E2E Testing**: Playwright with multi-browser support (Chrome, Firefox, Mobile Safari, Mobile Android)
+- **Test Location**: 
+  - Unit tests: Component tests live next to components (`ComponentName.test.tsx`)
+  - E2E tests: `tests/e2e/` directory
 - **Test Utilities**: Use `src/tests/test-utils.tsx` for reusable patterns
 - **Coverage**: Run `npm run test:coverage` to generate reports
 
@@ -198,13 +201,22 @@ npm test              # Watch mode for development
 npm run test:run      # Single run for CI/CD
 npm run test:ui       # Visual test dashboard
 npm run test:coverage # Generate coverage reports
+
+# E2E Tests (Playwright)
+npm run test:e2e        # Run all E2E tests across all browsers
+npm run test:e2e:ui     # Open Playwright UI mode for debugging
+npm run test:e2e:headed # Run with visible browser windows
+npm run test:e2e:debug  # Debug mode with step-through execution
+npm run test:e2e:report # Show HTML test report
 ```
 
 ### Test Coverage Requirements
 - **Minimum Coverage**: 80% for new components
 - **Required Tests**: All public component props and user interactions
 - **Excluded from Coverage**: Test files, config files, types-only files
-- **Current Project Coverage**: 556 tests across 14 test suites
+- **Current Project Coverage**: 
+  - **Unit Tests**: 556 tests across 14 test suites ✅
+  - **E2E Tests**: 24 tests across 4 browser configurations ✅
  - Authentication utilities: 109 tests, 71.87% coverage ✅
  - Validation utilities: 79 tests, 99.21% coverage ✅
  - RegisterForm component: 57 tests, 95.0% coverage ✅
@@ -245,6 +257,20 @@ await waitFor(() => {
 });
 ```
 
+### E2E Testing with Playwright
+- **Browser Coverage**: Desktop Chrome, Desktop Firefox, Mobile Safari (iPhone 14), Mobile Android (Pixel 7)
+- **Configuration**: `playwright.config.ts` defines browser projects and test settings
+- **Test Structure**: E2E tests use `.spec.ts` extension in `tests/e2e/` directory
+- **Best Practices**:
+  - **ALWAYS** use accessibility-first queries (getByRole, getByLabelText)
+  - **ALWAYS** test user-visible behavior, not implementation details
+  - **ALWAYS** use `.first()` when multiple elements match and you just need to verify existence
+  - **ALWAYS** include mobile device testing (critical for Safari-specific issues)
+  - **NEVER** use `getByTestId` unless absolutely necessary (prefer accessibility queries)
+  - **NEVER** hardcode selectors based on CSS classes (use semantic queries)
+- **Running E2E Tests**: Tests automatically start dev server on `http://localhost:5173`
+- **Current E2E Status**: 24 tests (6 smoke tests × 4 browsers) - all passing ✅
+
 ### Prohibited Testing Practices
 - **NEVER** test third-party libraries (trust they work)
 - **NEVER** use snapshots as the primary testing method
@@ -253,6 +279,7 @@ await waitFor(() => {
 - **NEVER** skip testing error states and edge cases
 - **NEVER** test implementation details (internal state, private methods)
 - **NEVER** use hardcoded empty arrays as test data (use realistic mock data)
+- **NEVER** suppress warnings instead of fixing root causes (fix environment variable conflicts properly)
 
 ### Validation Testing Best Practices (Reference: validation.test.ts)
 The validation utilities test suite demonstrates exemplary TDD practices:
