@@ -12,6 +12,11 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "env -u NO_COLOR FORCE_COLOR=1 playwright test",
+    "test:e2e:ui": "env -u NO_COLOR FORCE_COLOR=1 playwright test --ui",
+    "test:e2e:headed": "env -u NO_COLOR FORCE_COLOR=1 playwright test --headed",
+    "test:e2e:debug": "env -u NO_COLOR FORCE_COLOR=1 playwright test --debug",
+    "test:e2e:report": "playwright show-report",
     "release": "semantic-release",
     "release:dry-run": "semantic-release --dry-run"
   },
@@ -26,6 +31,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
+    "@playwright/test": "^1.57.0",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/git": "^10.0.1",

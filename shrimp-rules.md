@@ -287,15 +287,17 @@ dispatch({ type: 'COMPLETE_TASK', payload: taskId });
 ## Testing Standards
 
 ### Test Framework Setup
-- **Framework**: Vitest with React Testing Library
-- **Environment**: jsdom for DOM simulation
+- **Unit Testing**: Vitest with React Testing Library
+- **E2E Testing**: Playwright with multi-browser support
+- **Unit Test Environment**: jsdom for DOM simulation
 - **Coverage**: v8 provider with HTML/JSON/text reports
-- **UI Dashboard**: Available via `npm run test:ui`
+- **UI Dashboard**: Available via `npm run test:ui` (Vitest) and `npm run test:e2e:ui` (Playwright)
 
 ### Test File Organization
 - **Component Tests**: Place next to component (`Button.tsx` → `Button.test.tsx`)
 - **Utility Tests**: Place in same directory as utility (`storage.ts` → `storage.test.ts`)
 - **Integration Tests**: Place in `src/tests/` with `.integration.test.tsx` suffix
+- **E2E Tests**: Place in `tests/e2e/` with `.spec.ts` extension (`smoke.spec.ts`)
 - **Test Utilities**: Centralized in `src/tests/test-utils.tsx`
 
 ### Writing Tests (TDD Approach)
@@ -368,7 +370,20 @@ vi.mock('../services/api', () => ({
 - **Minimum**: 80% coverage for new components
 - **Required Tests**: All props, user interactions, edge cases
 - **Edge Cases**: Empty states, null values, long text, past dates
-- **Project Status**: 556 tests passing across 14 test suites (100% pass rate)
+- **Project Status**: 
+  - **Unit Tests**: 556 tests passing across 14 test suites (100% pass rate) ✅
+  - **E2E Tests**: 24 tests passing across 4 browser configurations (100% pass rate) ✅
+
+### E2E Testing Standards
+- **Browser Coverage**: Desktop Chrome, Desktop Firefox, Mobile Safari (iPhone 14), Mobile Android (Pixel 7)
+- **Configuration**: `playwright.config.ts` with browser-specific projects
+- **Test Location**: `tests/e2e/` directory with `.spec.ts` files
+- **Query Priority**: Same as unit tests - accessibility-first (getByRole, getByLabelText)
+- **Best Practices**:
+  - Use `.first()` when multiple elements match (strict mode violations)
+  - Test user-visible behavior, not implementation details
+  - Include mobile device testing (critical for Safari storage issues)
+  - Fix root causes instead of suppressing warnings (environment variables)
   - Authentication utilities: 109 tests, 71.87% coverage ✅
   - Validation utilities: 79 tests, 99.21% coverage ✅
   - RegisterForm component: 57 tests, 95.0% coverage ✅
@@ -417,13 +432,23 @@ it('should navigate on click', async () => {
 - ❌ **Never test third-party libraries** (trust they work)
 - ❌ **Never write dependent tests** (each test should be independent)
 - ❌ **Never use `any` type** (maintain TypeScript strictness)
+- ❌ **Never suppress warnings instead of fixing root causes** (fix environment variable conflicts)
+- ❌ **Never use CSS class selectors in E2E tests** (use semantic accessibility queries)
 
 ### Running Tests
 ```bash
+# Unit Tests
 npm test              # Watch mode (development)
 npm run test:run      # Single run (CI/CD)
 npm run test:ui       # Visual dashboard
 npm run test:coverage # Coverage report
+
+# E2E Tests (Playwright)
+npm run test:e2e        # Run all E2E tests across all browsers
+npm run test:e2e:ui     # Playwright UI mode for debugging
+npm run test:e2e:headed # Run with visible browser windows
+npm run test:e2e:debug  # Debug mode with step-through
+npm run test:e2e:report # Show HTML test report
 
 # Run specific test suites
 npm test -- src/utils/validation.test.ts  # Validation tests (79 tests)
